@@ -17,11 +17,14 @@ const (
 )
 
 type Sender struct {
-	serverURL string
-	apiKey    string
-	mu        sync.Mutex
-	queue     []string
-	client    *http.Client
+	serverURL    string
+	apiKey       string
+	mu           sync.Mutex
+	queue        []string
+	client       *http.Client
+	wasConnected bool
+	OnConnect    func() // called when a send succeeds after being disconnected
+	OnDisconnect func() // called when a send fails after being connected
 }
 
 func NewSender(serverURL, apiKey string) *Sender {
@@ -65,7 +68,13 @@ func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
 			s.mu.Unlock()
 
 			if err := s.send(batch); err != nil {
-				fmt.Printf("Send failed (%v), retrying in %s\n", err, backoff)
+				addStatus("Send failed (%v), retrying in %s", err, backoff)
+				if s.wasConnected {
+					s.wasConnected = false
+					if s.OnDisconnect != nil {
+						s.OnDisconnect()
+					}
+				}
 				time.Sleep(backoff)
 				backoff *= 2
 				if backoff > retryMaxDelay {
@@ -77,6 +86,12 @@ func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
 				s.queue = s.queue[len(batch):]
 				s.mu.Unlock()
 				backoff = retryBaseDelay
+				if !s.wasConnected {
+					s.wasConnected = true
+					if s.OnConnect != nil {
+						s.OnConnect()
+					}
+				}
 			}
 		}
 	}

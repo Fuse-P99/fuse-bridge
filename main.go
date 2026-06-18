@@ -1,53 +1,45 @@
 package main
 
-import (
-	"fmt"
-	"path/filepath"
-)
-
 // serverURL and apiKey are embedded at build time via -ldflags.
-// Example: go build -ldflags "-X main.serverURL=https://host:8765/submit -X main.apiKey=secret"
+// Example: go build -ldflags "-H windowsgui -X main.serverURL=https://host:8765/submit -X main.apiKey=secret"
 var (
 	serverURL = "http://localhost:8765/submit"
 	apiKey    = "dev-key"
 )
 
 func main() {
-	fmt.Println("Fuse Bridgekeeper Relay")
-	fmt.Println("Server:", serverURL)
-
-	// Load saved settings (defaults to all-enabled on first run)
 	currentSettings = LoadSettings()
 
 	done := make(chan struct{})
 	rawLines := make(chan string, 256)
 	fwdLines := make(chan string, 256)
 
-	// Start HTTP sender — reads filtered lines
+	// Start HTTP sender — reads filtered lines; updates tray icon on connect/disconnect
 	sender := NewSender(serverURL, apiKey)
+	sender.OnConnect = func() {
+		setConnected(true)
+		SetTrayConnected(true)
+		addStatus("Connected to server.")
+	}
+	sender.OnDisconnect = func() {
+		setConnected(false)
+		SetTrayConnected(false)
+		addStatus("Lost connection to server, retrying...")
+	}
 	go sender.Run(fwdLines, done)
 
 	// Background: wait for EQ, then start tailing
 	go func() {
-		installDir := findEQInstallDir(func(status string) {
-			fmt.Println(status)
-			SetTrayStatus(status)
-		})
-		fmt.Println("EverQuest found at:", installDir)
+		installDir := findEQInstallDir()
+		addStatus("EverQuest found at: %s", installDir)
 
 		logPath := findActiveLogFile(installDir)
 		if logPath == "" {
-			fmt.Println("No EQ log file found in", filepath.Join(installDir, "Logs"))
-			fmt.Println("Make sure logging is enabled in EverQuest (Options > General > Log).")
-		} else {
-			fmt.Println("Following log:", filepath.Base(logPath))
-			SetTrayStatus("Relay active — " + filepath.Base(logPath))
+			addStatus("No EQ log file found. Enable logging in EverQuest: Options > General > Log.")
+			SetTrayStatus("Relay active — no log file found")
 		}
 
-		tailLogFile(installDir, logPath, rawLines, done, func(status string) {
-			fmt.Println(status)
-			SetTrayStatus(status)
-		})
+		tailLogFile(installDir, logPath, rawLines, done)
 	}()
 
 	// Filter: rawLines → ShouldForward → fwdLines
@@ -56,7 +48,7 @@ func main() {
 			select {
 			case line := <-rawLines:
 				if ShouldForward(line) {
-					fmt.Println("Forwarded:", line)
+					addStatus("Forwarded: %s", line)
 					select {
 					case fwdLines <- line:
 					case <-done:
@@ -70,9 +62,7 @@ func main() {
 	}()
 
 	// Run tray on the main goroutine (walk requires this); blocks until Quit
-	runTray(func() {
-		openSettingsWindow()
-	})
+	runTray(openSettingsWindow, openStatusWindow)
 
 	close(done)
 }

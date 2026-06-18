@@ -5,57 +5,55 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
-// findEQInstallDir locates the EverQuest installation directory by finding
-// the running eqgame.exe or everquest.exe process and reading its path.
-// Blocks until EQ is found, retrying every 5 seconds.
-func findEQInstallDir(statusFn func(string)) string {
+// noWindowCmd creates an exec.Cmd that will not spawn a visible console window.
+// Required for GUI apps on Windows — without this, every subprocess opens a
+// blank cmd.exe window.
+func noWindowCmd(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
+	return cmd
+}
+
+// findEQInstallDir locates the EverQuest installation directory by finding the
+// running eqgame.exe or everquest.exe process. Blocks until EQ is found.
+func findEQInstallDir() string {
 	for {
-		for _, exeName := range []string{"eqgame.exe", "everquest.exe"} {
-			dir := installDirFromProcess(exeName)
-			if dir != "" {
+		for _, name := range []string{"eqgame", "everquest"} {
+			if dir := installDirFromProcess(name); dir != "" {
 				return dir
 			}
 		}
-		statusFn("Waiting for EverQuest to start...")
+		SetTrayStatus("Waiting for EverQuest to start...")
+		addStatus("Waiting for EverQuest to start...")
 		time.Sleep(5 * time.Second)
 	}
 }
 
-func installDirFromProcess(exeName string) string {
-	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq "+exeName, "/FO", "CSV", "/NH").Output()
+// installDirFromProcess uses PowerShell Get-Process to find the full path of
+// a running process by name and returns its directory.
+func installDirFromProcess(name string) string {
+	script := fmt.Sprintf(
+		`try { (Get-Process -Name '%s' -ErrorAction Stop | Select-Object -First 1).MainModule.FileName } catch { '' }`,
+		name,
+	)
+	out, err := noWindowCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
 		return ""
 	}
-	lines := strings.Split(string(out), "\n")
-	pidRe := regexp.MustCompile(`"[^"]+","(\d+)"`)
-	for _, line := range lines {
-		m := pidRe.FindStringSubmatch(line)
-		if len(m) < 2 {
-			continue
-		}
-		pid := m[1]
-		wmicOut, err := exec.Command("wmic", "process", "where", "ProcessId="+pid, "get", "ExecutablePath", "/format:value").Output()
-		if err != nil {
-			continue
-		}
-		for _, wline := range strings.Split(string(wmicOut), "\n") {
-			wline = strings.TrimSpace(wline)
-			if strings.HasPrefix(wline, "ExecutablePath=") {
-				path := strings.TrimPrefix(wline, "ExecutablePath=")
-				path = strings.TrimSpace(path)
-				if path != "" {
-					return filepath.Dir(path)
-				}
-			}
-		}
+	path := strings.TrimSpace(string(out))
+	if path == "" || !filepath.IsAbs(path) {
+		return ""
 	}
-	return ""
+	return filepath.Dir(path)
 }
 
 // findActiveLogFile scans the Logs subdirectory and returns the path of the
@@ -97,15 +95,14 @@ func findActiveLogFile(installDir string) string {
 	return candidates[0].path
 }
 
-// checkForLogFileChange returns a new log file path if a fresher log file
-// has been written to more recently than the current one, otherwise "".
+// checkForLogFileChange returns a new log file path if a fresher log file has
+// been written to more recently than the current one, otherwise "".
 func checkForLogFileChange(installDir, currentPath string) string {
 	if time.Since(modTime(currentPath)) < 10*time.Second {
-		return "" // current file is still active
+		return ""
 	}
 	newPath := findActiveLogFile(installDir)
 	if newPath != "" && newPath != currentPath {
-		fmt.Printf("Switching to: %s\n", filepath.Base(newPath))
 		return newPath
 	}
 	return ""

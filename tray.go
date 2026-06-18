@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -9,54 +8,51 @@ import (
 	"github.com/lxn/walk"
 )
 
-var trayIcon *walk.NotifyIcon
+var (
+	trayIcon  *walk.NotifyIcon
+	trayOwner *walk.MainWindow // needed to call Synchronize from other goroutines
+)
 
 // runTray sets up the system tray icon and blocks until the user quits or a
-// signal is received. openSettings is called when the user clicks "Settings".
-func runTray(openSettings func()) {
+// signal is received. openSettings and openStatus are called from the tray menu.
+func runTray(openSettings func(), openStatus func()) {
+	initIcons()
+
 	mw, err := walk.NewMainWindow()
 	if err != nil {
-		fmt.Println("Failed to create main window:", err)
 		os.Exit(1)
 	}
+	trayOwner = mw
 
 	ni, err := walk.NewNotifyIcon(mw)
 	if err != nil {
-		fmt.Println("Failed to create tray icon:", err)
 		os.Exit(1)
 	}
 	defer ni.Dispose()
 	trayIcon = ni
 
-	if err := ni.SetToolTip("Fuse Bridgekeeper Relay"); err != nil {
-		fmt.Println("SetToolTip:", err)
+	if iconDisconnected != nil {
+		ni.SetIcon(iconDisconnected)
 	}
-	if err := ni.SetVisible(true); err != nil {
-		fmt.Println("SetVisible:", err)
-	}
+	ni.SetToolTip("Fuse Bridgekeeper Relay — waiting for EverQuest...")
+	ni.SetVisible(true)
 
-	// "Settings" menu item
+	statusAction := walk.NewAction()
+	statusAction.SetText("Status")
+	statusAction.Triggered().Attach(func() { openStatus() })
+	ni.ContextMenu().Actions().Add(statusAction)
+
 	settingsAction := walk.NewAction()
-	if err := settingsAction.SetText("Settings"); err == nil {
-		settingsAction.Triggered().Attach(func() {
-			openSettings()
-		})
-	}
+	settingsAction.SetText("Settings")
+	settingsAction.Triggered().Attach(func() { openSettings() })
 	ni.ContextMenu().Actions().Add(settingsAction)
-
-	// Separator
 	ni.ContextMenu().Actions().Add(walk.NewSeparatorAction())
 
-	// "Quit" menu item
 	quitAction := walk.NewAction()
-	if err := quitAction.SetText("Quit"); err == nil {
-		quitAction.Triggered().Attach(func() {
-			walk.App().Exit(0)
-		})
-	}
+	quitAction.SetText("Quit")
+	quitAction.Triggered().Attach(func() { walk.App().Exit(0) })
 	ni.ContextMenu().Actions().Add(quitAction)
 
-	// Handle OS signals for clean shutdown
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -67,10 +63,27 @@ func runTray(openSettings func()) {
 	mw.Run()
 }
 
-// SetTrayStatus updates the tray icon tooltip with the current status.
+// SetTrayStatus updates the tray tooltip. Safe to call from any goroutine.
 func SetTrayStatus(status string) {
-	if trayIcon == nil {
+	if trayOwner == nil || trayIcon == nil {
 		return
 	}
-	trayIcon.SetToolTip(status)
+	trayOwner.Synchronize(func() {
+		trayIcon.SetToolTip(status)
+	})
+}
+
+// SetTrayConnected switches the tray icon green (connected) or grey
+// (disconnected). Safe to call from any goroutine.
+func SetTrayConnected(connected bool) {
+	if trayOwner == nil || trayIcon == nil {
+		return
+	}
+	trayOwner.Synchronize(func() {
+		if connected && iconConnected != nil {
+			trayIcon.SetIcon(iconConnected)
+		} else if !connected && iconDisconnected != nil {
+			trayIcon.SetIcon(iconDisconnected)
+		}
+	})
 }
