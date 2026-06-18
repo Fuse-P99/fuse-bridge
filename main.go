@@ -42,12 +42,13 @@ func main() {
 		tailLogFile(installDir, logPath, rawLines, done)
 	}()
 
-	// Filter: rawLines → ShouldForward → fwdLines
+	// Filter: rawLines → ShouldForward → rewrite self-guild-say → fwdLines
 	go func() {
 		for {
 			select {
 			case line := <-rawLines:
 				if ShouldForward(line) {
+					line = rewriteSelfGuildSay(line)
 					addStatus("Forwarded: %s", line)
 					select {
 					case fwdLines <- line:

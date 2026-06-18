@@ -109,11 +109,27 @@ func tailLogFile(installDir, initialPath string, out chan<- string, done <-chan 
 	}
 }
 
+var currentCharName string // e.g. "Dustin" — extracted from eqlog_Dustin_server.txt
+
 func notifyLogFile(path string) {
 	base := filepath.Base(path)
 	setLogFile(base)
 	SetTrayStatus("Relay active — " + base)
 	addStatus("Following log: %s", base)
+	currentCharName = charNameFromLog(base)
+}
+
+// charNameFromLog extracts the character name from a filename like
+// eqlog_Charactername_Servername.txt.
+func charNameFromLog(base string) string {
+	// strip "eqlog_" prefix and ".txt" suffix, then take the first segment
+	s := strings.TrimPrefix(base, "eqlog_")
+	s = strings.TrimSuffix(s, ".txt")
+	parts := strings.SplitN(s, "_", 2)
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0]
 }
 
 func openFromEnd(path string) (*os.File, int64) {
