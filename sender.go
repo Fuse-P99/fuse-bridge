@@ -47,6 +47,17 @@ func (s *Sender) Enqueue(line string) {
 // Run reads from the lines channel, batches them, and sends to the server.
 // Retries with exponential backoff on failure.
 func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
+	// Startup ping: verify connectivity and light up the tray icon immediately,
+	// independent of whether any log lines have been seen yet.
+	if err := s.send([]string{}); err == nil {
+		s.wasConnected = true
+		if s.OnConnect != nil {
+			s.OnConnect()
+		}
+	} else {
+		addStatus("Server ping failed: %v", err)
+	}
+
 	ticker := time.NewTicker(batchInterval)
 	defer ticker.Stop()
 	backoff := retryBaseDelay
