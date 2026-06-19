@@ -47,6 +47,7 @@ func main() {
 		for {
 			select {
 			case line := <-rawLines:
+				RecordLoginLine(line)
 				if ShouldForward(line) {
 					line = rewriteSelfGuildSay(line)
 					addStatus("Forwarded: %s", line)

@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	_ "embed"
-	"image/png"
+	"image"
+	"image/draw"
+	_ "image/png"
 
 	"github.com/lxn/walk"
 )
@@ -30,9 +32,14 @@ func initIcons() {
 }
 
 func iconFromPNG(data []byte) (*walk.Icon, error) {
-	img, err := png.Decode(bytes.NewReader(data))
+	src, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	return walk.NewIconFromImage(img)
+	// walk.NewIconFromImage requires *image.NRGBA; normalize regardless of
+	// the source color model (RGBA, paletted, gray, etc.)
+	bounds := src.Bounds()
+	dst := image.NewNRGBA(bounds)
+	draw.Draw(dst, bounds, src, bounds.Min, draw.Src)
+	return walk.NewIconFromImage(dst)
 }

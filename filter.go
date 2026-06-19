@@ -3,6 +3,7 @@ package main
 import (
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -14,6 +15,22 @@ var (
 	quakePattern      = regexp.MustCompile(`(?:You feel the (?:need to get somewhere safe quickly|sudden urge to seek a safe location)|The gods have awoken|The Gods of Norrath emit|The Gods strike all|Minions gather)`)
 )
 
+// loginTime is set whenever "Welcome to EverQuest!" appears in the log.
+// A MOTD seen within loginSuppressWindow of a login is suppressed — it's the
+// automatic login MOTD, not an officer update.
+var loginTime time.Time
+
+const loginSuppressWindow = 30 * time.Second
+
+// RecordLoginLine checks the line for the login marker and updates loginTime.
+// Must be called for every raw line before ShouldForward.
+func RecordLoginLine(line string) {
+	if strings.Contains(line, "Welcome to EverQuest!") {
+		loginTime = time.Now()
+		addStatus("Login detected — suppressing next MOTD")
+	}
+}
+
 // ShouldForward returns true if the log line should be sent to the server,
 // based on the line content and current user settings.
 func ShouldForward(line string) bool {
@@ -22,6 +39,10 @@ func ShouldForward(line string) bool {
 		return true
 	}
 	if s.GuildMotd && guildMotdPattern.MatchString(line) {
+		// Suppress the automatic MOTD shown on every login.
+		if time.Since(loginTime) < loginSuppressWindow {
+			return false
+		}
 		return true
 	}
 	if s.Broadcasts && broadcastPattern.MatchString(line) {

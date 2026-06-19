@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ func openStatusWindow() {
 
 	buildActivity := func() string {
 		_, _, _, lines := getStatusSnapshot()
+		slices.Reverse(lines)
 		return strings.Join(lines, "\r\n")
 	}
 
@@ -68,7 +70,7 @@ func openStatusWindow() {
 				Children: []Widget{
 					HSpacer{},
 					PushButton{
-						Text:    "Close",
+						Text:      "Close",
 						OnClicked: func() { dlg.Close(0) },
 					},
 				},
@@ -79,6 +81,9 @@ func openStatusWindow() {
 	}
 
 	statusDlg = dlg
+	if iconStartup != nil {
+		dlg.SetIcon(iconStartup)
+	}
 	dlg.Closing().Attach(func(_ *bool, _ walk.CloseReason) {
 		statusDlg = nil
 	})

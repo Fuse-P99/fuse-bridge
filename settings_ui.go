@@ -85,6 +85,9 @@ func openSettingsWindow() {
 	}
 
 	settingsDialog = dlg
+	if iconStartup != nil {
+		dlg.SetIcon(iconStartup)
+	}
 
 	// Save on any checkbox change
 	save := func() {
