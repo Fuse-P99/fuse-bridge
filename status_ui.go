@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -36,7 +37,7 @@ func openStatusWindow() {
 		if lf != "" {
 			lfStr = lf
 		}
-		return fmt.Sprintf("EverQuest: %s\r\nLog File:  %s\r\nServer:    %s  (%s)", eqStr, lfStr, connStr, serverURL)
+		return fmt.Sprintf("EverQuest: %s\r\nLog File:  %s\r\nServer:    %s", eqStr, lfStr, connStr)
 	}
 
 	buildActivity := func() string {
@@ -67,14 +68,7 @@ func openStatusWindow() {
 				Children: []Widget{
 					HSpacer{},
 					PushButton{
-						Text: "Refresh",
-						OnClicked: func() {
-							infoLb.SetText(buildInfo())
-							logTE.SetText(buildActivity())
-						},
-					},
-					PushButton{
-						Text: "Close",
+						Text:    "Close",
 						OnClicked: func() { dlg.Close(0) },
 					},
 				},
@@ -88,5 +82,25 @@ func openStatusWindow() {
 	dlg.Closing().Attach(func(_ *bool, _ walk.CloseReason) {
 		statusDlg = nil
 	})
+
+	// Auto-refresh every 2 seconds using a background goroutine that
+	// marshals updates onto the walk message loop via Synchronize.
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			if statusDlg == nil {
+				return
+			}
+			trayOwner.Synchronize(func() {
+				if statusDlg == nil {
+					return
+				}
+				infoLb.SetText(buildInfo())
+				logTE.SetText(buildActivity())
+			})
+		}
+	}()
+
 	dlg.Show()
 }
