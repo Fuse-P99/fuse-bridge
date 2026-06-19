@@ -56,6 +56,9 @@ func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
 		}
 	} else {
 		addStatus("Server ping failed: %v", err)
+		if s.OnDisconnect != nil {
+			s.OnDisconnect()
+		}
 	}
 
 	ticker := time.NewTicker(batchInterval)

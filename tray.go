@@ -31,8 +31,8 @@ func runTray(openSettings func(), openStatus func()) {
 	defer ni.Dispose()
 	trayIcon = ni
 
-	if iconDisconnected != nil {
-		ni.SetIcon(iconDisconnected)
+	if iconStartup != nil {
+		ni.SetIcon(iconStartup)
 	}
 	ni.SetToolTip("Fuse Bridgekeeper Relay — waiting for EverQuest...")
 	ni.SetVisible(true)

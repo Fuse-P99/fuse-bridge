@@ -18,12 +18,12 @@ func openSettingsWindow() {
 	s := GetSettings()
 
 	var (
-		dlg             *walk.Dialog
-		guildChatCB     *walk.CheckBox
-		guildMotdCB     *walk.CheckBox
-		broadcastsCB    *walk.CheckBox
-		serverMsgCB     *walk.CheckBox
-		quakeMsgCB      *walk.CheckBox
+		dlg          *walk.Dialog
+		guildChatCB  *walk.CheckBox
+		guildMotdCB  *walk.CheckBox
+		broadcastsCB *walk.CheckBox
+		serverMsgCB  *walk.CheckBox
+		quakeMsgCB   *walk.CheckBox
 	)
 
 	if err := (Dialog{
@@ -36,7 +36,7 @@ func openSettingsWindow() {
 				Pages: []TabPage{
 					{
 						Title:  "Tracked Log Lines",
-						Layout: VBox{MarginsZero: false},
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: false},
 						Children: []Widget{
 							CheckBox{
 								AssignTo: &guildChatCB,
