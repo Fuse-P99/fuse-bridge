@@ -81,9 +81,7 @@ func openStatusWindow() {
 	}
 
 	statusDlg = dlg
-	if iconStartup != nil {
-		dlg.SetIcon(iconStartup)
-	}
+	applyDialogIcon(dlg)
 	dlg.Closing().Attach(func(_ *bool, _ walk.CloseReason) {
 		statusDlg = nil
 	})
