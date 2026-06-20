@@ -14,6 +14,9 @@ var (
 	serverMsgPattern  = regexp.MustCompile(`<\[SERVER MESSAGE\]>:`)
 	quakePattern      = regexp.MustCompile(`(?:You feel the (?:need to get somewhere safe quickly|sudden urge to seek a safe location)|The gods have awoken|The Gods of Norrath emit|The Gods strike all|Minions gather)`)
 	engagePattern     = regexp.MustCompile(` engages \w+!`)
+	// Matches /who output lines: header, player entries, and footer.
+	// Uses "] [" (timestamp-close + player-bracket) to avoid false positives.
+	whoPattern        = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There are \d+ players in|\] \[(?:\d+ [A-Za-z]|ANONYMOUS)\] \w)`)
 )
 
 // loginTime is set whenever "Welcome to EverQuest!" appears in the log.
@@ -56,6 +59,9 @@ func ShouldForward(line string) bool {
 		return true
 	}
 	if s.EngageMessages && engagePattern.MatchString(line) {
+		return true
+	}
+	if s.WhoOutput && whoPattern.MatchString(line) {
 		return true
 	}
 	return false
