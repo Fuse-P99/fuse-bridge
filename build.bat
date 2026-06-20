@@ -5,7 +5,7 @@ REM   API_KEY    - the client_api_key from the server's config.json
 REM   VERSION    - must match client_version in the server's config.json
 set SERVER_URL=http://178.156.252.0:5678/submit
 set API_KEY=Fuse2026
-set VERSION=1.0.0
+set VERSION=1.0.1
 
 set GOOS=windows
 set GOARCH=amd64
