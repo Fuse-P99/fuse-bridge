@@ -24,6 +24,7 @@ func openSettingsWindow() {
 		broadcastsCB *walk.CheckBox
 		serverMsgCB  *walk.CheckBox
 		quakeMsgCB   *walk.CheckBox
+		engageMsgCB  *walk.CheckBox
 	)
 
 	if err := (Dialog{
@@ -63,6 +64,11 @@ func openSettingsWindow() {
 								Text:     "Quake messages",
 								Checked:  s.QuakeMessages,
 							},
+							CheckBox{
+								AssignTo: &engageMsgCB,
+								Text:     "Engage messages",
+								Checked:  s.EngageMessages,
+							},
 						},
 					},
 				},
@@ -95,6 +101,7 @@ func openSettingsWindow() {
 			Broadcasts:     broadcastsCB.Checked(),
 			ServerMessages: serverMsgCB.Checked(),
 			QuakeMessages:  quakeMsgCB.Checked(),
+			EngageMessages: engageMsgCB.Checked(),
 		})
 	}
 	guildChatCB.CheckedChanged().Attach(save)
@@ -102,6 +109,7 @@ func openSettingsWindow() {
 	broadcastsCB.CheckedChanged().Attach(save)
 	serverMsgCB.CheckedChanged().Attach(save)
 	quakeMsgCB.CheckedChanged().Attach(save)
+	engageMsgCB.CheckedChanged().Attach(save)
 
 	dlg.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		settingsDialog = nil

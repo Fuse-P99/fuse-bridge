@@ -13,6 +13,7 @@ type Settings struct {
 	Broadcasts     bool `json:"broadcasts"`
 	ServerMessages bool `json:"server_messages"`
 	QuakeMessages  bool `json:"quake_messages"`
+	EngageMessages bool `json:"engage_messages"`
 }
 
 var (
@@ -32,6 +33,7 @@ func LoadSettings() Settings {
 		Broadcasts:     true,
 		ServerMessages: true,
 		QuakeMessages:  true,
+		EngageMessages: true,
 	}
 	path := settingsPath()
 	data, err := os.ReadFile(path)

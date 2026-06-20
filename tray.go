@@ -23,6 +23,7 @@ func runTray(openSettings func(), openStatus func()) {
 		os.Exit(1)
 	}
 	trayOwner = mw
+	overrideClassIcon(mw.Handle()) // fix taskbar icon for main window class
 
 	ni, err := walk.NewNotifyIcon(mw)
 	if err != nil {
