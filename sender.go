@@ -23,8 +23,9 @@ type Sender struct {
 	queue        []string
 	client       *http.Client
 	wasConnected bool
-	OnConnect    func() // called when a send succeeds after being disconnected
-	OnDisconnect func() // called when a send fails after being connected
+	FlushNow     chan struct{} // signal to flush immediately without waiting for the ticker
+	OnConnect    func()       // called when a send succeeds after being disconnected
+	OnDisconnect func()       // called when a send fails after being connected
 }
 
 func NewSender(serverURL, apiKey string) *Sender {
@@ -32,6 +33,7 @@ func NewSender(serverURL, apiKey string) *Sender {
 		serverURL: serverURL,
 		apiKey:    apiKey,
 		client:    &http.Client{Timeout: 10 * time.Second},
+		FlushNow:  make(chan struct{}, 8),
 	}
 }
 
@@ -65,48 +67,53 @@ func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
 	defer ticker.Stop()
 	backoff := retryBaseDelay
 
+	trySend := func() {
+		s.mu.Lock()
+		if len(s.queue) == 0 {
+			s.mu.Unlock()
+			return
+		}
+		batch := make([]string, len(s.queue))
+		copy(batch, s.queue)
+		s.mu.Unlock()
+
+		if err := s.send(batch); err != nil {
+			addStatus("Send failed (%v), retrying in %s", err, backoff)
+			if s.wasConnected {
+				s.wasConnected = false
+				if s.OnDisconnect != nil {
+					s.OnDisconnect()
+				}
+			}
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > retryMaxDelay {
+				backoff = retryMaxDelay
+			}
+		} else {
+			s.mu.Lock()
+			s.queue = s.queue[len(batch):]
+			s.mu.Unlock()
+			backoff = retryBaseDelay
+			if !s.wasConnected {
+				s.wasConnected = true
+				if s.OnConnect != nil {
+					s.OnConnect()
+				}
+			}
+		}
+	}
+
 	for {
 		select {
 		case <-done:
 			return
 		case line := <-lines:
 			s.Enqueue(line)
+		case <-s.FlushNow:
+			trySend()
 		case <-ticker.C:
-			s.mu.Lock()
-			if len(s.queue) == 0 {
-				s.mu.Unlock()
-				continue
-			}
-			batch := make([]string, len(s.queue))
-			copy(batch, s.queue)
-			s.mu.Unlock()
-
-			if err := s.send(batch); err != nil {
-				addStatus("Send failed (%v), retrying in %s", err, backoff)
-				if s.wasConnected {
-					s.wasConnected = false
-					if s.OnDisconnect != nil {
-						s.OnDisconnect()
-					}
-				}
-				time.Sleep(backoff)
-				backoff *= 2
-				if backoff > retryMaxDelay {
-					backoff = retryMaxDelay
-				}
-			} else {
-				// Success: clear the sent lines from queue
-				s.mu.Lock()
-				s.queue = s.queue[len(batch):]
-				s.mu.Unlock()
-				backoff = retryBaseDelay
-				if !s.wasConnected {
-					s.wasConnected = true
-					if s.OnConnect != nil {
-						s.OnConnect()
-					}
-				}
-			}
+			trySend()
 		}
 	}
 }

@@ -56,6 +56,14 @@ func main() {
 					case <-done:
 						return
 					}
+					// Engage alerts are time-critical — flush immediately rather than
+					// waiting for the 2-second batch window.
+					if engagePattern.MatchString(line) {
+						select {
+						case sender.FlushNow <- struct{}{}:
+						default:
+						}
+					}
 				}
 			case <-done:
 				return
