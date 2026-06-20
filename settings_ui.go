@@ -77,6 +77,14 @@ func openSettingsWindow() {
 							},
 						},
 					},
+					{
+						Title:  "Info",
+						Layout: VBox{Alignment: AlignHNearVNear},
+						Children: []Widget{
+							Label{Text: "Fuse Bridgekeeper Relay"},
+							Label{Text: "Version: " + clientVersion},
+						},
+					},
 				},
 			},
 			Composite{
