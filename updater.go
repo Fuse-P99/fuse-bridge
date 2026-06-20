@@ -57,7 +57,7 @@ func applyUpdate(baseURL string) {
 		return
 	}
 	exeDir := filepath.Dir(exePath)
-	newExePath := filepath.Join(exeDir, "eq-relay-new.exe")
+	newExePath := filepath.Join(exeDir, "FuseBridge-new.exe")
 
 	req, err := http.NewRequest(http.MethodGet, baseURL+"/client", nil)
 	if err != nil {
@@ -93,7 +93,7 @@ func applyUpdate(baseURL string) {
 
 	// Write a batch script that waits for this process to exit, swaps the
 	// binary, relaunches, then deletes itself.
-	batchPath := filepath.Join(exeDir, "eq-relay-update.bat")
+	batchPath := filepath.Join(exeDir, "FuseBridge-update.bat")
 	batch := fmt.Sprintf(
 		"@echo off\r\n"+
 			"ping -n 3 127.0.0.1 > nul\r\n"+

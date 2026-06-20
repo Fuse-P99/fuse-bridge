@@ -49,7 +49,7 @@ func openStatusWindow() {
 
 	if err := (Dialog{
 		AssignTo: &dlg,
-		Title:    "Fuse Bridgekeeper Relay — Status",
+		Title:    "Fuse Bridge — Status",
 		MinSize:  Size{Width: 560, Height: 440},
 		Layout:   VBox{},
 		Children: []Widget{

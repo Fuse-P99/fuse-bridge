@@ -30,7 +30,7 @@ func openSettingsWindow() {
 
 	if err := (Dialog{
 		AssignTo: &dlg,
-		Title:    "Fuse Bridgekeeper Relay — Settings",
+		Title:    "Fuse Bridge — Settings",
 		MinSize:  Size{Width: 380, Height: 260},
 		Layout:   VBox{},
 		Children: []Widget{
@@ -81,7 +81,7 @@ func openSettingsWindow() {
 						Title:  "Info",
 						Layout: VBox{Alignment: AlignHNearVNear},
 						Children: []Widget{
-							Label{Text: "Fuse Bridgekeeper Relay"},
+							Label{Text: "Fuse Bridge"},
 							Label{Text: "Version: " + clientVersion},
 						},
 					},

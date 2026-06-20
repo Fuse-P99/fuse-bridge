@@ -35,7 +35,7 @@ func runTray(openSettings func(), openStatus func()) {
 	if iconStartup != nil {
 		ni.SetIcon(iconStartup)
 	}
-	ni.SetToolTip("Fuse Bridgekeeper Relay — waiting for EverQuest...")
+	ni.SetToolTip("Fuse Bridge — waiting for EverQuest...")
 	ni.SetVisible(true)
 
 	statusAction := walk.NewAction()

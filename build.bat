@@ -9,9 +9,9 @@ set VERSION=1.0.1
 
 set GOOS=windows
 set GOARCH=amd64
-go build -ldflags "-X main.serverURL=%SERVER_URL% -X main.apiKey=%API_KEY% -X main.clientVersion=%VERSION% -H windowsgui" -o eq-relay.exe .
+go build -ldflags "-X main.serverURL=%SERVER_URL% -X main.apiKey=%API_KEY% -X main.clientVersion=%VERSION% -H windowsgui" -o "Fuse Bridge.exe" .
 if %ERRORLEVEL% == 0 (
-    echo Built eq-relay.exe successfully ^(version %VERSION%^)
+    echo Built "Fuse Bridge.exe" successfully ^(version %VERSION%^)
 ) else (
     echo Build failed
 )
