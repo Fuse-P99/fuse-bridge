@@ -37,8 +37,8 @@ func openSettingsWindow() {
 			TabWidget{
 				Pages: []TabPage{
 					{
-						Title:  "Tracked Log Lines",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: false},
+						Title:  "Filters",
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
 						Children: []Widget{
 							CheckBox{
 								AssignTo: &guildChatCB,
