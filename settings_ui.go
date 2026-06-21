@@ -1,17 +1,20 @@
 package main
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
 
-var settingsDialog *walk.Dialog
+var settingsDlg *walk.Dialog
 
-// openSettingsWindow shows the settings dialog if it isn't already open.
-// Subsequent calls bring the existing window to the foreground.
 func openSettingsWindow() {
-	if settingsDialog != nil {
-		settingsDialog.BringToTop()
+	if settingsDlg != nil {
+		settingsDlg.BringToTop()
 		return
 	}
 
@@ -19,6 +22,8 @@ func openSettingsWindow() {
 
 	var (
 		dlg          *walk.Dialog
+		infoLb       *walk.Label
+		logTE        *walk.TextEdit
 		guildChatCB  *walk.CheckBox
 		guildMotdCB  *walk.CheckBox
 		broadcastsCB *walk.CheckBox
@@ -28,14 +33,54 @@ func openSettingsWindow() {
 		whoOutputCB  *walk.CheckBox
 	)
 
+	buildInfo := func() string {
+		eq, lf, conn, _ := getStatusSnapshot()
+		eqStr := "Not detected"
+		if eq {
+			eqStr = "Running"
+		}
+		connStr := "Not connected"
+		if conn {
+			connStr = "Connected"
+		}
+		lfStr := "None"
+		if lf != "" {
+			lfStr = lf
+		}
+		return fmt.Sprintf("EverQuest: %s\r\nLog File:  %s\r\nServer:    %s", eqStr, lfStr, connStr)
+	}
+
+	buildActivity := func() string {
+		_, _, _, lines := getStatusSnapshot()
+		slices.Reverse(lines)
+		return strings.Join(lines, "\r\n")
+	}
+
 	if err := (Dialog{
 		AssignTo: &dlg,
 		Title:    "Fuse Bridge — Settings",
-		MinSize:  Size{Width: 380, Height: 260},
+		MinSize:  Size{Width: 560, Height: 440},
 		Layout:   VBox{},
 		Children: []Widget{
 			TabWidget{
 				Pages: []TabPage{
+					{
+						Title:  "Status",
+						Layout: VBox{Alignment: AlignHNearVNear},
+						Children: []Widget{
+							Label{
+								AssignTo: &infoLb,
+								Text:     buildInfo(),
+							},
+							VSeparator{},
+							TextEdit{
+								AssignTo: &logTE,
+								Text:     buildActivity(),
+								ReadOnly: true,
+								VScroll:  true,
+							},
+						},
+					},
 					{
 						Title:  "Filters",
 						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
@@ -92,10 +137,8 @@ func openSettingsWindow() {
 				Children: []Widget{
 					HSpacer{},
 					PushButton{
-						Text: "Close",
-						OnClicked: func() {
-							dlg.Close(0)
-						},
+						Text:      "Close",
+						OnClicked: func() { dlg.Close(0) },
 					},
 				},
 			},
@@ -104,10 +147,9 @@ func openSettingsWindow() {
 		return
 	}
 
-	settingsDialog = dlg
+	settingsDlg = dlg
 	applyDialogIcon(dlg)
 
-	// Save on any checkbox change
 	save := func() {
 		UpdateSettings(Settings{
 			GuildChat:      guildChatCB.Checked(),
@@ -127,9 +169,27 @@ func openSettingsWindow() {
 	engageMsgCB.CheckedChanged().Attach(save)
 	whoOutputCB.CheckedChanged().Attach(save)
 
-	dlg.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
-		settingsDialog = nil
+	dlg.Closing().Attach(func(_ *bool, _ walk.CloseReason) {
+		settingsDlg = nil
 	})
+
+	// Auto-refresh the Status tab every 2 seconds.
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			if settingsDlg == nil {
+				return
+			}
+			trayOwner.Synchronize(func() {
+				if settingsDlg == nil {
+					return
+				}
+				infoLb.SetText(buildInfo())
+				logTE.SetText(buildActivity())
+			})
+		}
+	}()
 
 	dlg.Show()
 }

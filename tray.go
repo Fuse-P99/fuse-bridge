@@ -14,8 +14,8 @@ var (
 )
 
 // runTray sets up the system tray icon and blocks until the user quits or a
-// signal is received. openSettings and openStatus are called from the tray menu.
-func runTray(openSettings func(), openStatus func()) {
+// signal is received. openSettings is called from the tray menu.
+func runTray(openSettings func()) {
 	initIcons()
 
 	mw, err := walk.NewMainWindow()
@@ -37,11 +37,6 @@ func runTray(openSettings func(), openStatus func()) {
 	}
 	ni.SetToolTip("Fuse Bridge — waiting for EverQuest...")
 	ni.SetVisible(true)
-
-	statusAction := walk.NewAction()
-	statusAction.SetText("Status")
-	statusAction.Triggered().Attach(func() { openStatus() })
-	ni.ContextMenu().Actions().Add(statusAction)
 
 	settingsAction := walk.NewAction()
 	settingsAction.SetText("Settings")

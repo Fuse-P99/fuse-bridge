@@ -75,7 +75,7 @@ func main() {
 	}()
 
 	// Run tray on the main goroutine (walk requires this); blocks until Quit
-	runTray(openSettingsWindow, openStatusWindow)
+	runTray(openSettingsWindow)
 
 	close(done)
 }
