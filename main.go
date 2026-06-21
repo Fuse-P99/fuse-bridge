@@ -34,6 +34,7 @@ func main() {
 	go func() {
 		installDir := findEQInstallDir()
 		addStatus("EverQuest found at: %s", installDir)
+		go identifyClient(installDir)
 
 		logPath := findActiveLogFile(installDir)
 		if logPath == "" {
