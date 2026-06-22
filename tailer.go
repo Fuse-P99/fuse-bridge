@@ -39,7 +39,7 @@ func tailLogFile(installDir, initialPath string, out chan<- string, done <-chan 
 					f.Close()
 				}
 				path = newPath
-				f, offset = openFromEnd(path)
+				f, offset = openFromLogin(path)
 				partial = ""
 				if f != nil {
 					notifyLogFile(path)
@@ -130,6 +130,42 @@ func charNameFromLog(base string) string {
 		return ""
 	}
 	return parts[0]
+}
+
+// openFromLogin opens the file and seeks to the start of the most recent
+// "Welcome to EverQuest!" line so that login-time lines (zone entry, etc.)
+// are captured when switching characters. Falls back to end-of-file if the
+// marker is not found in the last 256 KB.
+func openFromLogin(path string) (*os.File, int64) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, 0
+	}
+	size, err := f.Seek(0, io.SeekEnd)
+	if err != nil {
+		f.Close()
+		return nil, 0
+	}
+
+	const lookback = 256 * 1024
+	start := size - lookback
+	if start < 0 {
+		start = 0
+	}
+	buf := make([]byte, size-start)
+	if _, err := f.ReadAt(buf, start); err != nil && err != io.EOF {
+		return f, size // fall back to end
+	}
+
+	const marker = "Welcome to EverQuest!"
+	idx := strings.LastIndex(string(buf), marker)
+	if idx < 0 {
+		return f, size // marker not found — fall back to end
+	}
+
+	// Rewind to the start of the line containing the marker.
+	lineStart := strings.LastIndex(string(buf[:idx]), "\n") + 1
+	return f, start + int64(lineStart)
 }
 
 func openFromEnd(path string) (*os.File, int64) {
