@@ -24,6 +24,7 @@ func openSettingsWindow() {
 
 	var (
 		dlg          *walk.Dialog
+		tabWidget    *walk.TabWidget
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
 		zoneTE       *walk.TextEdit
@@ -81,6 +82,7 @@ func openSettingsWindow() {
 		Layout:   VBox{},
 		Children: []Widget{
 			TabWidget{
+				AssignTo: &tabWidget,
 				Pages: []TabPage{
 					{
 						Title:  "General",
@@ -132,6 +134,9 @@ func openSettingsWindow() {
 									},
 								},
 							},
+							VSeparator{},
+							Label{Text: "Fuse Bridge v" + clientVersion},
+							VSpacer{},
 						},
 					},
 					{
@@ -207,14 +212,7 @@ func openSettingsWindow() {
 								Text:     "Character locations",
 								Checked:  s.CharacterLocations,
 							},
-						},
-					},
-					{
-						Title:  "Info",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
-						Children: []Widget{
-							Label{Text: "Fuse Bridge"},
-							Label{Text: "Version: " + clientVersion},
+							VSpacer{},
 						},
 					},
 				},
@@ -236,6 +234,13 @@ func openSettingsWindow() {
 
 	settingsDlg = dlg
 	applyDialogIcon(dlg)
+
+	// Clear selection whenever the user switches tabs so read-only TextEdits
+	// don't appear with all text highlighted on first focus.
+	tabWidget.CurrentIndexChanged().Attach(func() {
+		logTE.SetTextSelection(0, 0)
+		zoneTE.SetTextSelection(0, 0)
+	})
 
 	save := func() {
 		current := GetSettings()
@@ -284,7 +289,9 @@ func openSettingsWindow() {
 				}
 				infoLb.SetText(buildInfo())
 				logTE.SetText(buildActivity())
+				logTE.SetTextSelection(0, 0)
 				zoneTE.SetText(buildZoneList())
+				zoneTE.SetTextSelection(0, 0)
 			})
 		}
 	}()
