@@ -68,9 +68,14 @@ func openSettingsWindow() {
 		if len(zones) == 0 {
 			return "No zone data yet."
 		}
+		toons := make([]string, 0, len(zones))
+		for toon := range zones {
+			toons = append(toons, toon)
+		}
+		slices.Sort(toons)
 		var sb strings.Builder
-		for toon, zone := range zones {
-			sb.WriteString(fmt.Sprintf("%-20s %s\r\n", toon, zone))
+		for _, toon := range toons {
+			sb.WriteString(fmt.Sprintf("%-20s  %s\r\n", toon, zones[toon]))
 		}
 		return strings.TrimRight(sb.String(), "\r\n")
 	}
@@ -162,6 +167,7 @@ func openSettingsWindow() {
 						Children: []Widget{
 							TextEdit{
 								AssignTo: &zoneTE,
+								Font:     Font{Family: "Courier New", PointSize: 9},
 								Text:     buildZoneList(),
 								ReadOnly: true,
 								VScroll:  true,
