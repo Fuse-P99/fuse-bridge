@@ -205,6 +205,7 @@ func openSettingsWindow() {
 			WhoOutput:          whoOutputCB.Checked(),
 			CharacterLocations: charLocCB.Checked(),
 			StartupConfigured:  current.StartupConfigured,
+			EQDirectory:        current.EQDirectory,
 		})
 	}
 	guildChatCB.CheckedChanged().Attach(save)

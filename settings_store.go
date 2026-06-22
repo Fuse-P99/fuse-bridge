@@ -8,15 +8,16 @@ import (
 )
 
 type Settings struct {
-	GuildChat          bool `json:"guild_chat"`
-	GuildMotd          bool `json:"guild_motd"`
-	Broadcasts         bool `json:"broadcasts"`
-	ServerMessages     bool `json:"server_messages"`
-	QuakeMessages      bool `json:"quake_messages"`
-	EngageMessages     bool `json:"engage_messages"`
-	WhoOutput          bool `json:"who_output"`
-	CharacterLocations bool `json:"character_locations"`
-	StartupConfigured  bool `json:"startup_configured"`
+	GuildChat          bool   `json:"guild_chat"`
+	GuildMotd          bool   `json:"guild_motd"`
+	Broadcasts         bool   `json:"broadcasts"`
+	ServerMessages     bool   `json:"server_messages"`
+	QuakeMessages      bool   `json:"quake_messages"`
+	EngageMessages     bool   `json:"engage_messages"`
+	WhoOutput          bool   `json:"who_output"`
+	CharacterLocations bool   `json:"character_locations"`
+	StartupConfigured  bool   `json:"startup_configured"`
+	EQDirectory        string `json:"eq_directory"`
 }
 
 var (

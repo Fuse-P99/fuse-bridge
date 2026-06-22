@@ -21,6 +21,19 @@ func isAutoStartEnabled() bool {
 	return err == nil
 }
 
+// hasLegacyRegistryAutoStart returns true if the old registry-based entry
+// still exists, indicating a migration to the startup folder is needed.
+func hasLegacyRegistryAutoStart() bool {
+	k, err := registry.OpenKey(registry.CURRENT_USER,
+		`Software\Microsoft\Windows\CurrentVersion\Run`, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+	_, _, err = k.GetStringValue(autoStartValueName)
+	return err == nil
+}
+
 func setAutoStart(enable bool) error {
 	// Remove any legacy registry Run entry.
 	if k, err := registry.OpenKey(registry.CURRENT_USER,

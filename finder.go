@@ -21,12 +21,26 @@ func noWindowCmd(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// findEQInstallDir blocks until a running eqgame.exe or everquest.exe is found.
+// findEQInstallDir returns the EQ install directory. On the first run it blocks
+// until a running eqgame.exe or everquest.exe is found and caches the result.
+// On subsequent runs it returns immediately from the cached value, avoiding any
+// process or WMI queries (and thus the need for admin rights).
 func findEQInstallDir() string {
+	if cached := GetSettings().EQDirectory; cached != "" {
+		if _, err := os.Stat(filepath.Join(cached, "Logs")); err == nil {
+			addStatus("Using cached EQ directory: %s", cached)
+			return cached
+		}
+		addStatus("Cached EQ directory no longer valid, re-detecting...")
+	}
+
 	first := true
 	for {
 		for _, exe := range []string{"eqgame.exe", "everquest.exe"} {
 			if dir := installDirFromProcess(exe); dir != "" {
+				s := GetSettings()
+				s.EQDirectory = dir
+				UpdateSettings(s)
 				return dir
 			}
 		}

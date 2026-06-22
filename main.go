@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 // serverURL, apiKey, and clientVersion are embedded at build time via -ldflags.
 // Example: go build -ldflags "-H windowsgui -X main.serverURL=https://host/submit -X main.apiKey=secret -X main.clientVersion=1.0.0"
 var (
@@ -9,11 +11,16 @@ var (
 )
 
 func main() {
+	// Give Windows time to finish loading the shell and notification area
+	// before we try to create a tray icon.
+	time.Sleep(5 * time.Second)
+
 	currentSettings = LoadSettings()
 	LoadZones()
 
-	// On first run, enable auto-start by default and record that we've done it.
-	if !currentSettings.StartupConfigured {
+	// On first run, or when migrating from the old registry-based approach,
+	// enable auto-start and record that we've done it.
+	if !currentSettings.StartupConfigured || hasLegacyRegistryAutoStart() {
 		setAutoStart(true)
 		currentSettings.StartupConfigured = true
 		SaveSettings(currentSettings)
