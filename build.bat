@@ -9,7 +9,7 @@ set VERSION=1.0.1
 
 set GOOS=windows
 set GOARCH=amd64
-rsrc -manifest app.manifest -ico FuseIcon.ico -o rsrc.syso
+rsrc -manifest app.manifest -ico FuseIcon2.ico -o rsrc.syso
 go build -ldflags "-X main.serverURL=%SERVER_URL% -X main.apiKey=%API_KEY% -X main.clientVersion=%VERSION% -H windowsgui" -o "Fuse Bridge.exe" .
 if %ERRORLEVEL% == 0 (
     echo Built "Fuse Bridge.exe" successfully ^(version %VERSION%^)
