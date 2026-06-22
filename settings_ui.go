@@ -83,7 +83,7 @@ func openSettingsWindow() {
 					},
 					{
 						Title:  "Filters",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+						Layout: VBox{Alignment: AlignHVDefault, MarginsZero: true},
 						Children: []Widget{
 							CheckBox{
 								AssignTo: &guildChatCB,
@@ -124,7 +124,7 @@ func openSettingsWindow() {
 					},
 					{
 						Title:  "Info",
-						Layout: VBox{Alignment: AlignHNearVNear},
+						Layout: VBox{Alignment: AlignHVDefault},
 						Children: []Widget{
 							Label{Text: "Fuse Bridge"},
 							Label{Text: "Version: " + clientVersion},
