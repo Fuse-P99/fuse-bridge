@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -91,30 +90,25 @@ func applyUpdate(baseURL string) {
 	}
 	f.Close()
 
-	// Write a batch script that waits for this process to exit, swaps the
-	// binary, relaunches, then deletes itself.
-	batchPath := filepath.Join(exeDir, "FuseBridge-update.bat")
-	batch := fmt.Sprintf(
-		"@echo off\r\n"+
-			"ping -n 3 127.0.0.1 > nul\r\n"+
-			"move /Y \"%s\" \"%s\"\r\n"+
-			"start \"\" \"%s\"\r\n"+
-			"del \"%%~f0\"\r\n",
+	// Launch a hidden PowerShell process that waits for this process to exit,
+	// swaps the binary, and relaunches it. PowerShell with -WindowStyle Hidden
+	// plus CREATE_NO_WINDOW on the spawning side means no console ever appears.
+	script := fmt.Sprintf(
+		"Start-Sleep -Seconds 3; "+
+			"Move-Item -Force '%s' '%s'; "+
+			"Start-Process '%s'",
 		newExePath, exePath, exePath,
 	)
-	if err := os.WriteFile(batchPath, []byte(batch), 0600); err != nil {
+	if err := noWindowCmd("powershell",
+		"-WindowStyle", "Hidden",
+		"-NoProfile", "-NonInteractive",
+		"-Command", script,
+	).Start(); err != nil {
 		os.Remove(newExePath)
-		addStatus("Update failed: cannot write update script: %v", err)
-		return
-	}
-
-	addStatus("Restarting for update...")
-	if err := exec.Command("cmd", "/C", "start", "", "/MIN", batchPath).Start(); err != nil {
-		os.Remove(newExePath)
-		os.Remove(batchPath)
 		addStatus("Update failed: cannot launch update script: %v", err)
 		return
 	}
 
+	addStatus("Restarting for update...")
 	os.Exit(0)
 }
