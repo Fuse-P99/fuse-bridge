@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -34,6 +36,7 @@ func openSettingsWindow() {
 		whoOutputCB  *walk.CheckBox
 		charLocCB    *walk.CheckBox
 		autoStartCB  *walk.CheckBox
+		eqDirLE      *walk.LineEdit
 	)
 
 	buildInfo := func() string {
@@ -162,6 +165,47 @@ func openSettingsWindow() {
 								AssignTo: &autoStartCB,
 								Text:     "Start automatically with Windows",
 								Checked:  isAutoStartEnabled(),
+							},
+							VSeparator{},
+							Label{Text: "EQ Install Directory:"},
+							Composite{
+								Layout: HBox{MarginsZero: true},
+								Children: []Widget{
+									LineEdit{
+										AssignTo: &eqDirLE,
+										Text:     s.EQDirectory,
+										ReadOnly: true,
+									},
+									PushButton{
+										Text: "Browse...",
+										OnClicked: func() {
+											cmd := noWindowCmd("powershell", "-NoProfile", "-NonInteractive", "-Command",
+												`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');`+
+													`$d=New-Object System.Windows.Forms.FolderBrowserDialog;`+
+													`$d.Description='Select your EverQuest installation folder';`+
+													`$d.RootFolder=[System.Environment+SpecialFolder]::MyComputer;`+
+													`if($d.ShowDialog() -eq 'OK'){$d.SelectedPath}`)
+											out, err := cmd.Output()
+											if err != nil {
+												return
+											}
+											path := strings.TrimSpace(string(out))
+											if path == "" {
+												return
+											}
+											if _, err := os.Stat(filepath.Join(path, "Logs")); err != nil {
+												walk.MsgBox(settingsDlg, "Invalid folder",
+													"The selected folder does not contain a Logs subfolder.\nPlease select your EverQuest installation folder.",
+													walk.MsgBoxIconError|walk.MsgBoxOK)
+												return
+											}
+											eqDirLE.SetText(path)
+											cur := GetSettings()
+											cur.EQDirectory = path
+											UpdateSettings(cur)
+										},
+									},
+								},
 							},
 						},
 					},

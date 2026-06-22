@@ -21,10 +21,10 @@ func noWindowCmd(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// findEQInstallDir returns the EQ install directory. On the first run it blocks
-// until a running eqgame.exe or everquest.exe is found and caches the result.
-// On subsequent runs it returns immediately from the cached value, avoiding any
-// process or WMI queries (and thus the need for admin rights).
+// findEQInstallDir returns the EQ install directory, blocking until it is known.
+// It checks the settings cache first (no admin needed), then falls back to
+// process detection. If EQ is running as admin and the path cannot be read,
+// it prompts the user to set the directory manually in Settings.
 func findEQInstallDir() string {
 	if cached := GetSettings().EQDirectory; cached != "" {
 		if _, err := os.Stat(filepath.Join(cached, "Logs")); err == nil {
@@ -35,21 +35,49 @@ func findEQInstallDir() string {
 	}
 
 	first := true
+	blockedLogged := false
 	for {
+		// Re-check cache each iteration — user may have set it manually.
+		if cached := GetSettings().EQDirectory; cached != "" {
+			if _, err := os.Stat(filepath.Join(cached, "Logs")); err == nil {
+				return cached
+			}
+		}
+
+		eqRunning := false
 		for _, exe := range []string{"eqgame.exe", "everquest.exe"} {
-			if dir := installDirFromProcess(exe); dir != "" {
+			if !processExistsInSnapshot(strings.ToLower(exe)) {
+				continue
+			}
+			eqRunning = true
+			if dir := pathViaWMI(exe); dir != "" {
 				s := GetSettings()
 				s.EQDirectory = dir
 				UpdateSettings(s)
 				return dir
 			}
 		}
+
 		if first {
 			first = false
-			diagProcessScan()
+			if !eqRunning {
+				diagProcessScan()
+			}
 		}
-		SetTrayStatus("Waiting for EverQuest to start...")
-		addStatus("Waiting for EverQuest to start...")
+
+		if eqRunning {
+			if !blockedLogged {
+				blockedLogged = true
+				addStatus("EQ is running but its path cannot be read (likely running as admin).")
+				addStatus("Set the EQ install directory manually in Settings → Startup.")
+				SetTrayStatus("Set EQ path in Settings → Startup")
+			}
+		} else {
+			blockedLogged = false
+			SetTrayStatus("Waiting for EverQuest to start...")
+			addStatus("Waiting for EverQuest to start...")
+		}
+
 		time.Sleep(5 * time.Second)
 	}
 }
