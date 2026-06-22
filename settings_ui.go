@@ -66,7 +66,7 @@ func openSettingsWindow() {
 				Pages: []TabPage{
 					{
 						Title:  "Status",
-						Layout: VBox{Alignment: AlignHNearVNear},
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
 						Children: []Widget{
 							Label{
 								AssignTo: &infoLb,
@@ -83,7 +83,7 @@ func openSettingsWindow() {
 					},
 					{
 						Title:  "Filters",
-						Layout: VBox{Alignment: AlignHVDefault, MarginsZero: true},
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
 						Children: []Widget{
 							CheckBox{
 								AssignTo: &guildChatCB,
@@ -124,7 +124,7 @@ func openSettingsWindow() {
 					},
 					{
 						Title:  "Info",
-						Layout: VBox{Alignment: AlignHNearVNear},
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
 						Children: []Widget{
 							Label{Text: "Fuse Bridge"},
 							Label{Text: "Version: " + clientVersion},
