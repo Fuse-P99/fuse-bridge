@@ -33,7 +33,7 @@ func setAutoStart(enable bool) error {
 		if err != nil {
 			return err
 		}
-		return k.SetStringValue(autoStartValueName, exe)
+		return k.SetStringValue(autoStartValueName, `"`+exe+`"`)
 	}
 	return k.DeleteValue(autoStartValueName)
 }
