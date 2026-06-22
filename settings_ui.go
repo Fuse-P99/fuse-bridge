@@ -124,7 +124,7 @@ func openSettingsWindow() {
 					},
 					{
 						Title:  "Info",
-						Layout: VBox{Alignment: AlignHVDefault},
+						Layout: VBox{Alignment: AlignHNearVNear},
 						Children: []Widget{
 							Label{Text: "Fuse Bridge"},
 							Label{Text: "Version: " + clientVersion},
