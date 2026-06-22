@@ -24,6 +24,7 @@ func openSettingsWindow() {
 		dlg          *walk.Dialog
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
+		zoneTE       *walk.TextEdit
 		guildChatCB  *walk.CheckBox
 		guildMotdCB  *walk.CheckBox
 		broadcastsCB *walk.CheckBox
@@ -31,6 +32,8 @@ func openSettingsWindow() {
 		quakeMsgCB   *walk.CheckBox
 		engageMsgCB  *walk.CheckBox
 		whoOutputCB  *walk.CheckBox
+		charLocCB    *walk.CheckBox
+		autoStartCB  *walk.CheckBox
 	)
 
 	buildInfo := func() string {
@@ -56,6 +59,18 @@ func openSettingsWindow() {
 		return strings.Join(lines, "\r\n")
 	}
 
+	buildZoneList := func() string {
+		zones := GetAllZones()
+		if len(zones) == 0 {
+			return "No zone data yet."
+		}
+		var sb strings.Builder
+		for toon, zone := range zones {
+			sb.WriteString(fmt.Sprintf("%-20s %s\r\n", toon, zone))
+		}
+		return strings.TrimRight(sb.String(), "\r\n")
+	}
+
 	if err := (Dialog{
 		AssignTo: &dlg,
 		Title:    "Fuse Bridge — Settings",
@@ -76,6 +91,18 @@ func openSettingsWindow() {
 							TextEdit{
 								AssignTo: &logTE,
 								Text:     buildActivity(),
+								ReadOnly: true,
+								VScroll:  true,
+							},
+						},
+					},
+					{
+						Title:  "Character Locations",
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+						Children: []Widget{
+							TextEdit{
+								AssignTo: &zoneTE,
+								Text:     buildZoneList(),
 								ReadOnly: true,
 								VScroll:  true,
 							},
@@ -120,6 +147,22 @@ func openSettingsWindow() {
 								Text:     "/who output",
 								Checked:  s.WhoOutput,
 							},
+							CheckBox{
+								AssignTo: &charLocCB,
+								Text:     "Character locations",
+								Checked:  s.CharacterLocations,
+							},
+						},
+					},
+					{
+						Title:  "Startup",
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+						Children: []Widget{
+							CheckBox{
+								AssignTo: &autoStartCB,
+								Text:     "Start automatically with Windows",
+								Checked:  isAutoStartEnabled(),
+							},
 						},
 					},
 					{
@@ -151,14 +194,17 @@ func openSettingsWindow() {
 	applyDialogIcon(dlg)
 
 	save := func() {
+		current := GetSettings()
 		UpdateSettings(Settings{
-			GuildChat:      guildChatCB.Checked(),
-			GuildMotd:      guildMotdCB.Checked(),
-			Broadcasts:     broadcastsCB.Checked(),
-			ServerMessages: serverMsgCB.Checked(),
-			QuakeMessages:  quakeMsgCB.Checked(),
-			EngageMessages: engageMsgCB.Checked(),
-			WhoOutput:      whoOutputCB.Checked(),
+			GuildChat:          guildChatCB.Checked(),
+			GuildMotd:          guildMotdCB.Checked(),
+			Broadcasts:         broadcastsCB.Checked(),
+			ServerMessages:     serverMsgCB.Checked(),
+			QuakeMessages:      quakeMsgCB.Checked(),
+			EngageMessages:     engageMsgCB.Checked(),
+			WhoOutput:          whoOutputCB.Checked(),
+			CharacterLocations: charLocCB.Checked(),
+			StartupConfigured:  current.StartupConfigured,
 		})
 	}
 	guildChatCB.CheckedChanged().Attach(save)
@@ -168,12 +214,18 @@ func openSettingsWindow() {
 	quakeMsgCB.CheckedChanged().Attach(save)
 	engageMsgCB.CheckedChanged().Attach(save)
 	whoOutputCB.CheckedChanged().Attach(save)
+	charLocCB.CheckedChanged().Attach(save)
+	autoStartCB.CheckedChanged().Attach(func() {
+		if err := setAutoStart(autoStartCB.Checked()); err != nil {
+			addStatus("Auto-start: %v", err)
+		}
+	})
 
 	dlg.Closing().Attach(func(_ *bool, _ walk.CloseReason) {
 		settingsDlg = nil
 	})
 
-	// Auto-refresh the Status tab every 2 seconds.
+	// Auto-refresh the Status and Character Locations tabs every 2 seconds.
 	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
@@ -187,6 +239,7 @@ func openSettingsWindow() {
 				}
 				infoLb.SetText(buildInfo())
 				logTE.SetText(buildActivity())
+				zoneTE.SetText(buildZoneList())
 			})
 		}
 	}()

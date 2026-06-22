@@ -8,15 +8,16 @@ import (
 )
 
 var (
-	guildChatPattern  = regexp.MustCompile(`tells the guild, `)
-	guildSelfPattern  = regexp.MustCompile(`You say to your guild, `)
-	guildMotdPattern  = regexp.MustCompile(`GUILD MOTD:`)
-	broadcastPattern  = regexp.MustCompile(`BROADCASTS, `)
-	serverMsgPattern  = regexp.MustCompile(`<\[SERVER MESSAGE\]>:`)
-	quakePattern      = regexp.MustCompile(`(?:You feel the (?:need to get somewhere safe quickly|sudden urge to seek a safe location)|The gods have awoken|The Gods of Norrath emit|The Gods strike all|Minions gather)`)
-	engagePattern     = regexp.MustCompile(` engages \w+!`)
+	guildChatPattern   = regexp.MustCompile(`tells the guild, `)
+	guildSelfPattern   = regexp.MustCompile(`You say to your guild, `)
+	guildMotdPattern   = regexp.MustCompile(`GUILD MOTD:`)
+	broadcastPattern   = regexp.MustCompile(`BROADCASTS, `)
+	serverMsgPattern   = regexp.MustCompile(`<\[SERVER MESSAGE\]>:`)
+	quakePattern       = regexp.MustCompile(`(?:You feel the (?:need to get somewhere safe quickly|sudden urge to seek a safe location)|The gods have awoken|The Gods of Norrath emit|The Gods strike all|Minions gather)`)
+	engagePattern      = regexp.MustCompile(` engages \w+!`)
+	enteredZonePattern = regexp.MustCompile(`You have entered (.+)\.`)
 	// Matches /who output lines: header, player entries (including LINKDEAD/AFK prefixes), and footer.
-	whoPattern        = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There are \d+ players in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS)\])`)
+	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There are \d+ players in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS)\])`)
 )
 
 var (
@@ -102,7 +103,19 @@ func ShouldForward(line string) bool {
 	if s.WhoOutput && whoPattern.MatchString(line) {
 		return shouldForwardWhoLine(line)
 	}
+	if s.CharacterLocations && enteredZonePattern.MatchString(line) {
+		return true
+	}
 	return false
+}
+
+// ExtractZone returns the zone name from a "You have entered X." line, or "".
+func ExtractZone(line string) string {
+	m := enteredZonePattern.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
 }
 
 // rewriteSelfGuildSay converts the player's own guild-say format into the

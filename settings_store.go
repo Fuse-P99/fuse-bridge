@@ -8,13 +8,15 @@ import (
 )
 
 type Settings struct {
-	GuildChat      bool `json:"guild_chat"`
-	GuildMotd      bool `json:"guild_motd"`
-	Broadcasts     bool `json:"broadcasts"`
-	ServerMessages bool `json:"server_messages"`
-	QuakeMessages  bool `json:"quake_messages"`
-	EngageMessages bool `json:"engage_messages"`
-	WhoOutput      bool `json:"who_output"`
+	GuildChat          bool `json:"guild_chat"`
+	GuildMotd          bool `json:"guild_motd"`
+	Broadcasts         bool `json:"broadcasts"`
+	ServerMessages     bool `json:"server_messages"`
+	QuakeMessages      bool `json:"quake_messages"`
+	EngageMessages     bool `json:"engage_messages"`
+	WhoOutput          bool `json:"who_output"`
+	CharacterLocations bool `json:"character_locations"`
+	StartupConfigured  bool `json:"startup_configured"`
 }
 
 var (
@@ -29,13 +31,14 @@ func settingsPath() string {
 
 func LoadSettings() Settings {
 	defaults := Settings{
-		GuildChat:      true,
-		GuildMotd:      true,
-		Broadcasts:     true,
-		ServerMessages: true,
-		QuakeMessages:  true,
-		EngageMessages: true,
-		WhoOutput:      true,
+		GuildChat:          true,
+		GuildMotd:          true,
+		Broadcasts:         true,
+		ServerMessages:     true,
+		QuakeMessages:      true,
+		EngageMessages:     true,
+		WhoOutput:          true,
+		CharacterLocations: true,
 	}
 	path := settingsPath()
 	data, err := os.ReadFile(path)

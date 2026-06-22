@@ -10,6 +10,15 @@ var (
 
 func main() {
 	currentSettings = LoadSettings()
+	LoadZones()
+
+	// On first run, enable auto-start by default and record that we've done it.
+	if !currentSettings.StartupConfigured {
+		setAutoStart(true)
+		currentSettings.StartupConfigured = true
+		SaveSettings(currentSettings)
+	}
+
 	startUpdateChecker()
 
 	done := make(chan struct{})
@@ -51,6 +60,9 @@ func main() {
 			select {
 			case line := <-rawLines:
 				RecordLoginLine(line)
+				if zone := ExtractZone(line); zone != "" {
+					UpdateLocalZone(currentCharName, zone)
+				}
 				if ShouldForward(line) {
 					line = rewriteSelfGuildSay(line)
 					addStatus("Forwarded: %s", line)
