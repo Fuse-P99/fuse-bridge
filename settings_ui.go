@@ -147,36 +147,6 @@ func openSettingsWindow() {
 						},
 					},
 					{
-						Title:  "Status",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
-						Children: []Widget{
-							Label{
-								AssignTo: &infoLb,
-								Text:     buildInfo(),
-							},
-							VSeparator{},
-							TextEdit{
-								AssignTo: &logTE,
-								Text:     buildActivity(),
-								ReadOnly: true,
-								VScroll:  true,
-							},
-						},
-					},
-					{
-						Title:  "Character Locations",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
-						Children: []Widget{
-							TextEdit{
-								AssignTo: &zoneTE,
-								Font:     Font{Family: "Courier New", PointSize: 9},
-								Text:     buildZoneList(),
-								ReadOnly: true,
-								VScroll:  true,
-							},
-						},
-					},
-					{
 						Title:  "Filters",
 						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
 						Children: []Widget{
@@ -221,6 +191,36 @@ func openSettingsWindow() {
 								Checked:  s.CharacterLocations,
 							},
 							VSpacer{},
+						},
+					},
+					{
+						Title:  "Status",
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+						Children: []Widget{
+							Label{
+								AssignTo: &infoLb,
+								Text:     buildInfo(),
+							},
+							VSeparator{},
+							TextEdit{
+								AssignTo: &logTE,
+								Text:     buildActivity(),
+								ReadOnly: true,
+								VScroll:  true,
+							},
+						},
+					},
+					{
+						Title:  "Character Locations",
+						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+						Children: []Widget{
+							TextEdit{
+								AssignTo: &zoneTE,
+								Font:     Font{Family: "Courier New", PointSize: 9},
+								Text:     buildZoneList(),
+								ReadOnly: true,
+								VScroll:  true,
+							},
 						},
 					},
 					{
