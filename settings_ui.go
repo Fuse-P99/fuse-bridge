@@ -10,6 +10,7 @@ import (
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 )
 
 var settingsDlg *walk.Dialog
@@ -23,10 +24,10 @@ func openSettingsWindow() {
 	s := GetSettings()
 
 	var (
-		dlg          *walk.Dialog
-		tabWidget    *walk.TabWidget
-		infoLb       *walk.Label
-		logTE        *walk.TextEdit
+		dlg               *walk.Dialog
+		tabWidget         *walk.TabWidget
+		infoLb            *walk.Label
+		logTE             *walk.TextEdit
 		charSearch        *walk.LineEdit
 		matchCountLbl     *walk.Label
 		prevMatchBtn      *walk.PushButton
@@ -35,18 +36,18 @@ func openSettingsWindow() {
 		excludeFilteredCB *walk.CheckBox
 		charLB            *walk.ListBox
 		charTE            *walk.TextEdit
-		snoopLB      *walk.ListBox
-		snoopTE      *walk.TextEdit
-		guildChatCB  *walk.CheckBox
-		guildMotdCB  *walk.CheckBox
-		broadcastsCB *walk.CheckBox
-		serverMsgCB  *walk.CheckBox
-		quakeMsgCB   *walk.CheckBox
-		engageMsgCB  *walk.CheckBox
-		whoOutputCB  *walk.CheckBox
-		charLocCB    *walk.CheckBox
-		autoStartCB  *walk.CheckBox
-		eqDirLE      *walk.LineEdit
+		snoopLB           *walk.ListBox
+		snoopTE           *walk.TextEdit
+		guildChatCB       *walk.CheckBox
+		guildMotdCB       *walk.CheckBox
+		broadcastsCB      *walk.CheckBox
+		serverMsgCB       *walk.CheckBox
+		quakeMsgCB        *walk.CheckBox
+		engageMsgCB       *walk.CheckBox
+		whoOutputCB       *walk.CheckBox
+		charLocCB         *walk.CheckBox
+		autoStartCB       *walk.CheckBox
+		eqDirLE           *walk.LineEdit
 	)
 
 	buildInfo := func() string {
@@ -75,7 +76,7 @@ func openSettingsWindow() {
 	if err := (Dialog{
 		AssignTo: &dlg,
 		Title:    "Fuse Bridge — Settings",
-		MinSize:  Size{Width: 560, Height: 440},
+		MinSize:  Size{Width: 700, Height: 550},
 		Layout:   VBox{},
 		Children: []Widget{
 			TabWidget{
@@ -300,10 +301,11 @@ func openSettingsWindow() {
 	settingsDlg = dlg
 	applyDialogIcon(dlg)
 
-	// walk's TextEdit is a Rich Edit control. Apply ECO_NOHIDESEL so the
-	// selection stays visible even when the control doesn't have focus.
-	// EM_SETOPTIONS = WM_USER+75 = 0x044B; ECOOP_OR = 2; ECO_NOHIDESEL = 0x100
-	charTE.SendMessage(0x044B, 2, 0x100)
+	// walk's TextEdit is a plain Win32 EDIT control. Add ES_NOHIDESEL (0x0100)
+	// so the selection highlight is visible even when the control lacks focus
+	// (e.g. while the user is typing in charSearch).
+	teStyle := win.GetWindowLong(charTE.Handle(), win.GWL_STYLE)
+	win.SetWindowLong(charTE.Handle(), win.GWL_STYLE, teStyle|0x0100)
 
 	// Clear selection whenever the user switches tabs so read-only TextEdits
 	// don't appear with all text highlighted on first focus.
@@ -342,6 +344,8 @@ func openSettingsWindow() {
 		pos := matchOffsets[matchIdx]
 		charTE.SetTextSelection(pos, pos+len(query))
 		charTE.SendMessage(emScrollCaret, 0, 0)
+		// Invalidate forces a repaint so ES_NOHIDESEL actually draws the highlight.
+		win.InvalidateRect(charTE.Handle(), nil, true)
 		matchCountLbl.SetText(fmt.Sprintf("%d/%d", matchIdx+1, len(matchOffsets)))
 	}
 
