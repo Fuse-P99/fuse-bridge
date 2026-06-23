@@ -591,7 +591,7 @@ func openSettingsWindow() {
 			})
 		}
 		doFetch()
-		ticker := time.NewTicker(60 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
 			if settingsDlg == nil {
