@@ -50,24 +50,6 @@ func fetchZoneSnoop() ([]zoneData, error) {
 	return zr.Zones, nil
 }
 
-// buildAllZonesContent returns a formatted string for all zones to display
-// in the Zone Snoop TextEdit.
-func buildAllZonesContent(zones []zoneData) string {
-	if len(zones) == 0 {
-		return "No /who data in the last hour."
-	}
-	var sb strings.Builder
-	for i, zone := range zones {
-		if i > 0 {
-			sb.WriteString("\r\n")
-			sb.WriteString(strings.Repeat("=", 50) + "\r\n")
-			sb.WriteString("\r\n")
-		}
-		sb.WriteString(buildZoneContent(zone))
-	}
-	return sb.String()
-}
-
 func buildZoneContent(zone zoneData) string {
 	type gEntry struct {
 		total   int

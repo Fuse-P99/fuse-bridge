@@ -28,6 +28,7 @@ func openSettingsWindow() {
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
 		zoneTE       *walk.TextEdit
+		snoopLB      *walk.ListBox
 		snoopTE      *walk.TextEdit
 		guildChatCB  *walk.CheckBox
 		guildMotdCB  *walk.CheckBox
@@ -224,8 +225,13 @@ func openSettingsWindow() {
 					},
 					{
 						Title:  "Zone Snoop",
-						Layout: VBox{MarginsZero: true},
+						Layout: HBox{MarginsZero: true},
 						Children: []Widget{
+							ListBox{
+								AssignTo: &snoopLB,
+								MinSize:  Size{Width: 200},
+								MaxSize:  Size{Width: 200},
+							},
 							TextEdit{
 								AssignTo: &snoopTE,
 								ReadOnly: true,
@@ -259,6 +265,16 @@ func openSettingsWindow() {
 	tabWidget.CurrentIndexChanged().Attach(func() {
 		logTE.SetTextSelection(0, 0)
 		zoneTE.SetTextSelection(0, 0)
+	})
+
+	var snoopZones []zoneData
+	snoopLB.CurrentIndexChanged().Attach(func() {
+		idx := snoopLB.CurrentIndex()
+		if idx < 0 || idx >= len(snoopZones) {
+			snoopTE.SetText("")
+			return
+		}
+		snoopTE.SetText(buildZoneContent(snoopZones[idx]))
 		snoopTE.SetTextSelection(0, 0)
 	})
 
@@ -322,11 +338,31 @@ func openSettingsWindow() {
 			if err != nil {
 				return
 			}
-			text := buildAllZonesContent(zones)
 			trayOwner.Synchronize(func() {
-				if settingsDlg != nil {
-					snoopTE.SetText(text)
-					snoopTE.SetTextSelection(0, 0)
+				if settingsDlg == nil {
+					return
+				}
+				// Remember the currently selected zone so we can restore it.
+				prevName := ""
+				if idx := snoopLB.CurrentIndex(); idx >= 0 && idx < len(snoopZones) {
+					prevName = snoopZones[idx].Name
+				}
+				snoopZones = zones
+				items := make([]string, len(zones))
+				for i, z := range zones {
+					items[i] = fmt.Sprintf("%s (%d)", z.Name, len(z.Characters))
+				}
+				snoopLB.SetModel(items)
+				// Restore previous selection, or default to first zone.
+				newIdx := 0
+				for i, z := range zones {
+					if z.Name == prevName {
+						newIdx = i
+						break
+					}
+				}
+				if len(zones) > 0 {
+					snoopLB.SetCurrentIndex(newIdx)
 				}
 			})
 		}
