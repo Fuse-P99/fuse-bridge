@@ -27,7 +27,9 @@ func openSettingsWindow() {
 		tabWidget    *walk.TabWidget
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
-		zoneTE       *walk.TextEdit
+		charSearch   *walk.LineEdit
+		charLB       *walk.ListBox
+		charTE       *walk.TextEdit
 		snoopLB      *walk.ListBox
 		snoopTE      *walk.TextEdit
 		guildChatCB  *walk.CheckBox
@@ -63,23 +65,6 @@ func openSettingsWindow() {
 		_, _, _, lines := getStatusSnapshot()
 		slices.Reverse(lines)
 		return strings.Join(lines, "\r\n")
-	}
-
-	buildZoneList := func() string {
-		zones := GetAllZones()
-		if len(zones) == 0 {
-			return "No zone data yet."
-		}
-		toons := make([]string, 0, len(zones))
-		for toon := range zones {
-			toons = append(toons, toon)
-		}
-		slices.Sort(toons)
-		var sb strings.Builder
-		for _, toon := range toons {
-			sb.WriteString(fmt.Sprintf("%-20s  %s\r\n", toon, zones[toon]))
-		}
-		return strings.TrimRight(sb.String(), "\r\n")
 	}
 
 	if err := (Dialog{
@@ -211,15 +196,28 @@ func openSettingsWindow() {
 						},
 					},
 					{
-						Title:  "Character Locations",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+						Title:  "Characters",
+						Layout: VBox{MarginsZero: true},
 						Children: []Widget{
-							TextEdit{
-								AssignTo: &zoneTE,
-								Font:     Font{Family: "Courier New", PointSize: 9},
-								Text:     buildZoneList(),
-								ReadOnly: true,
-								VScroll:  true,
+							LineEdit{
+								AssignTo:  &charSearch,
+								CueBanner: "Search name, inventory, spells...",
+							},
+							Composite{
+								Layout: HBox{MarginsZero: true},
+								Children: []Widget{
+									ListBox{
+										AssignTo: &charLB,
+										MinSize:  Size{Width: 200},
+										MaxSize:  Size{Width: 200},
+									},
+									TextEdit{
+										AssignTo: &charTE,
+										ReadOnly: true,
+										VScroll:  true,
+										Font:     Font{Family: "Courier New", PointSize: 9},
+									},
+								},
 							},
 						},
 					},
@@ -264,9 +262,84 @@ func openSettingsWindow() {
 	// don't appear with all text highlighted on first focus.
 	tabWidget.CurrentIndexChanged().Attach(func() {
 		logTE.SetTextSelection(0, 0)
-		zoneTE.SetTextSelection(0, 0)
+		charTE.SetTextSelection(0, 0)
 	})
 
+	// --- Characters tab ---
+	eqDir := GetSettings().EQDirectory
+	var charDisplayed []string // names currently shown in charLB (may be filtered)
+
+	getCurrentCharName := func() string {
+		idx := charLB.CurrentIndex()
+		if idx < 0 || idx >= len(charDisplayed) {
+			return ""
+		}
+		return charDisplayed[idx]
+	}
+
+	updateCharDetail := func() {
+		name := getCurrentCharName()
+		if name == "" {
+			charTE.SetText("")
+			return
+		}
+		content := buildCharContent(name, eqDir)
+		charTE.SetText(content)
+		query := charSearch.Text()
+		if query != "" {
+			if pos := searchInContent(content, query); pos >= 0 {
+				charTE.SetTextSelection(pos, pos+len(query))
+				return
+			}
+		}
+		charTE.SetTextSelection(0, 0)
+	}
+
+	applyCharFilter := func() {
+		allNames := getAllCharNames(eqDir)
+		query := charSearch.Text()
+		prevName := getCurrentCharName()
+
+		if query == "" {
+			charDisplayed = allNames
+		} else {
+			lower := strings.ToLower(query)
+			var filtered []string
+			for _, n := range allNames {
+				if strings.Contains(strings.ToLower(n), lower) {
+					filtered = append(filtered, n)
+					continue
+				}
+				if strings.Contains(strings.ToLower(buildCharContent(n, eqDir)), lower) {
+					filtered = append(filtered, n)
+				}
+			}
+			charDisplayed = filtered
+		}
+
+		items := make([]string, len(charDisplayed))
+		copy(items, charDisplayed)
+		charLB.SetModel(items)
+
+		newIdx := 0
+		for i, n := range charDisplayed {
+			if n == prevName {
+				newIdx = i
+				break
+			}
+		}
+		if len(charDisplayed) > 0 {
+			charLB.SetCurrentIndex(newIdx)
+		} else {
+			charTE.SetText("")
+		}
+	}
+
+	charLB.CurrentIndexChanged().Attach(updateCharDetail)
+	charSearch.TextChanged().Attach(applyCharFilter)
+	applyCharFilter()
+
+	// --- Zone Snoop tab ---
 	var snoopZones []zoneData
 	snoopLB.CurrentIndexChanged().Attach(func() {
 		idx := snoopLB.CurrentIndex()
@@ -311,7 +384,7 @@ func openSettingsWindow() {
 		settingsDlg = nil
 	})
 
-	// Auto-refresh the Status and Character Locations tabs every 2 seconds.
+	// Auto-refresh the Status and Characters tabs every 2 seconds.
 	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
@@ -326,8 +399,8 @@ func openSettingsWindow() {
 				infoLb.SetText(buildInfo())
 				logTE.SetText(buildActivity())
 				logTE.SetTextSelection(0, 0)
-				zoneTE.SetText(buildZoneList())
-				zoneTE.SetTextSelection(0, 0)
+				// Refresh the selected character's location time display.
+				updateCharDetail()
 			})
 		}
 	}()

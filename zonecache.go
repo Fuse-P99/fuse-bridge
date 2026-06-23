@@ -5,11 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
+
+type ZoneEntry struct {
+	Zone      string    `json:"zone"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
 
 var (
 	zoneMu    sync.RWMutex
-	zoneCache = make(map[string]string) // toon name → last zone
+	zoneCache = make(map[string]ZoneEntry) // toon name → last zone entry
 )
 
 func zonesPath() string {
@@ -22,10 +28,20 @@ func LoadZones() {
 	if err != nil {
 		return
 	}
-	var m map[string]string
+	var m map[string]ZoneEntry
 	if json.Unmarshal(data, &m) == nil {
 		zoneMu.Lock()
 		zoneCache = m
+		zoneMu.Unlock()
+		return
+	}
+	// Migrate from old format (map[string]string, no timestamp).
+	var old map[string]string
+	if json.Unmarshal(data, &old) == nil {
+		zoneMu.Lock()
+		for k, v := range old {
+			zoneCache[k] = ZoneEntry{Zone: v}
+		}
 		zoneMu.Unlock()
 	}
 }
@@ -47,17 +63,17 @@ func UpdateLocalZone(toon, zone string) {
 		return
 	}
 	zoneMu.Lock()
-	zoneCache[toon] = zone
+	zoneCache[toon] = ZoneEntry{Zone: zone, UpdatedAt: time.Now()}
 	zoneMu.Unlock()
 	saveZones()
 }
 
-func GetAllZones() map[string]string {
+func GetAllZones() map[string]ZoneEntry {
 	zoneMu.RLock()
 	defer zoneMu.RUnlock()
-	copy := make(map[string]string, len(zoneCache))
+	m := make(map[string]ZoneEntry, len(zoneCache))
 	for k, v := range zoneCache {
-		copy[k] = v
+		m[k] = v
 	}
-	return copy
+	return m
 }
