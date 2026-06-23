@@ -28,6 +28,7 @@ func openSettingsWindow() {
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
 		zoneTE       *walk.TextEdit
+		zoneSubTW    *walk.TabWidget
 		guildChatCB  *walk.CheckBox
 		guildMotdCB  *walk.CheckBox
 		broadcastsCB *walk.CheckBox
@@ -221,6 +222,15 @@ func openSettingsWindow() {
 							VSpacer{},
 						},
 					},
+					{
+						Title:  "Zone Snoop",
+						Layout: VBox{MarginsZero: true},
+						Children: []Widget{
+							TabWidget{
+								AssignTo: &zoneSubTW,
+							},
+						},
+					},
 				},
 			},
 			Composite{
@@ -299,6 +309,55 @@ func openSettingsWindow() {
 				zoneTE.SetText(buildZoneList())
 				zoneTE.SetTextSelection(0, 0)
 			})
+		}
+	}()
+
+	rebuildZoneSnoop := func(zones []zoneData) {
+		for zoneSubTW.Pages().Len() > 0 {
+			zoneSubTW.Pages().RemoveAt(0)
+		}
+		for _, zone := range zones {
+			page, err := walk.NewTabPage()
+			if err != nil {
+				continue
+			}
+			page.SetTitle(fmt.Sprintf("%s (%d)", zone.Name, len(zone.Characters)))
+			if err := zoneSubTW.Pages().Add(page); err != nil {
+				continue
+			}
+			page.SetLayout(walk.NewVBoxLayout())
+			te, err := walk.NewTextEdit(page)
+			if err != nil {
+				continue
+			}
+			te.SetReadOnly(true)
+			if font, err := walk.NewFont("Courier New", 9, 0); err == nil {
+				te.SetFont(font)
+			}
+			te.SetText(buildZoneContent(zone))
+		}
+	}
+
+	go func() {
+		doFetch := func() {
+			zones, err := fetchZoneSnoop()
+			if err != nil {
+				return
+			}
+			trayOwner.Synchronize(func() {
+				if settingsDlg != nil {
+					rebuildZoneSnoop(zones)
+				}
+			})
+		}
+		doFetch()
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			if settingsDlg == nil {
+				return
+			}
+			doFetch()
 		}
 	}()
 
