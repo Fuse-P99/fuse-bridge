@@ -10,7 +10,6 @@ import (
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
-	"github.com/lxn/win"
 )
 
 var settingsDlg *walk.Dialog
@@ -301,11 +300,10 @@ func openSettingsWindow() {
 	settingsDlg = dlg
 	applyDialogIcon(dlg)
 
-	// Make charTE show the selection highlight even when it doesn't have focus,
-	// so search matches are visible while the user types in charSearch.
-	const esNohidesel = int32(0x0100)
-	curStyle := win.GetWindowLong(charTE.Handle(), win.GWL_STYLE)
-	win.SetWindowLong(charTE.Handle(), win.GWL_STYLE, curStyle|esNohidesel)
+	// walk's TextEdit is a Rich Edit control. Apply ECO_NOHIDESEL so the
+	// selection stays visible even when the control doesn't have focus.
+	// EM_SETOPTIONS = WM_USER+75 = 0x044B; ECOOP_OR = 2; ECO_NOHIDESEL = 0x100
+	charTE.SendMessage(0x044B, 2, 0x100)
 
 	// Clear selection whenever the user switches tabs so read-only TextEdits
 	// don't appear with all text highlighted on first focus.
@@ -322,6 +320,7 @@ func openSettingsWindow() {
 	var charDisplayed []string // names currently shown in charLB (may be filtered)
 	var matchOffsets []int     // byte offsets of query hits in current right-pane content
 	var matchIdx int           // which match is currently highlighted
+	var lastDetailName string  // character whose content is currently shown
 
 	getCurrentCharName := func() string {
 		idx := charLB.CurrentIndex()
@@ -352,12 +351,20 @@ func openSettingsWindow() {
 			charTE.SetText("")
 			matchOffsets = nil
 			matchCountLbl.SetText("")
+			lastDetailName = ""
 			return
 		}
 		content := buildCharContent(name, eqDir)
 		charTE.SetText(content)
-		matchOffsets = allMatches(content, charSearch.Text())
-		matchIdx = 0
+		newOffsets := allMatches(content, charSearch.Text())
+		if name != lastDetailName {
+			// Character changed — reset to first match.
+			matchIdx = 0
+		} else if matchIdx >= len(newOffsets) {
+			matchIdx = 0
+		}
+		matchOffsets = newOffsets
+		lastDetailName = name
 		jumpToMatch()
 	}
 
