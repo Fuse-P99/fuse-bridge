@@ -15,17 +15,32 @@ type versionResponse struct {
 	Version string `json:"version"`
 }
 
-// startUpdateChecker checks for a new client binary on startup and then hourly.
+// lastLogActivity is updated by the filter goroutine each time a line arrives
+// from the EQ log. Used to determine whether the game is actively being played.
+var lastLogActivity time.Time
+
+// logIsStale returns true when no EQ log line has been seen for at least an
+// hour, indicating the game is not being played and it is safe to restart.
+func logIsStale() bool {
+	// Zero means no activity since the relay started — treat as stale.
+	return lastLogActivity.IsZero() || time.Since(lastLogActivity) >= 1*time.Hour
+}
+
+// startUpdateChecker checks for a new client binary on startup and then every
+// 6 hours, but only when EQ logs have been quiet for at least an hour.
 func startUpdateChecker() {
 	go func() {
 		checkForUpdate()
-		for range time.Tick(1 * time.Hour) {
+		for range time.Tick(6 * time.Hour) {
 			checkForUpdate()
 		}
 	}()
 }
 
 func checkForUpdate() {
+	if !logIsStale() {
+		return
+	}
 	base := strings.TrimSuffix(serverURL, "/submit")
 	resp, err := http.Get(base + "/version")
 	if err != nil {

@@ -68,6 +68,7 @@ func main() {
 		for {
 			select {
 			case line := <-rawLines:
+				lastLogActivity = time.Now()
 				RecordLoginLine(line)
 				if zone := ExtractZone(line); zone != "" {
 					UpdateLocalZone(currentCharName, zone)
