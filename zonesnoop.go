@@ -19,6 +19,7 @@ type zoneChar struct {
 
 type zoneData struct {
 	Name       string     `json:"name"`
+	LastSeen   time.Time  `json:"last_seen"`
 	Characters []zoneChar `json:"characters"`
 }
 
@@ -49,8 +50,24 @@ func fetchZoneSnoop() ([]zoneData, error) {
 	return zr.Zones, nil
 }
 
-// buildZoneContent returns a formatted string for a zone's tab page:
-// guild summary at the top, a separator, then the full character list.
+// buildAllZonesContent returns a formatted string for all zones to display
+// in the Zone Snoop TextEdit.
+func buildAllZonesContent(zones []zoneData) string {
+	if len(zones) == 0 {
+		return "No /who data in the last hour."
+	}
+	var sb strings.Builder
+	for i, zone := range zones {
+		if i > 0 {
+			sb.WriteString("\r\n")
+			sb.WriteString(strings.Repeat("=", 50) + "\r\n")
+			sb.WriteString("\r\n")
+		}
+		sb.WriteString(buildZoneContent(zone))
+	}
+	return sb.String()
+}
+
 func buildZoneContent(zone zoneData) string {
 	type gEntry struct {
 		total   int
@@ -86,6 +103,10 @@ func buildZoneContent(zone zoneData) string {
 	}
 
 	var sb strings.Builder
+	minutes := int(time.Since(zone.LastSeen).Minutes())
+	header := fmt.Sprintf("%s (%d)  —  Seen %d minutes ago", zone.Name, len(zone.Characters), minutes)
+	sb.WriteString(header + "\r\n")
+	sb.WriteString(strings.Repeat("-", len(header)) + "\r\n\r\n")
 	for _, g := range guildOrder {
 		e := guildMap[g]
 		sb.WriteString(fmt.Sprintf("<%s> (%d)\r\n", g, e.total))

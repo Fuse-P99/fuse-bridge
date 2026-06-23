@@ -28,7 +28,7 @@ func openSettingsWindow() {
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
 		zoneTE       *walk.TextEdit
-		zoneSubTW    *walk.TabWidget
+		snoopTE      *walk.TextEdit
 		guildChatCB  *walk.CheckBox
 		guildMotdCB  *walk.CheckBox
 		broadcastsCB *walk.CheckBox
@@ -226,8 +226,11 @@ func openSettingsWindow() {
 						Title:  "Zone Snoop",
 						Layout: VBox{MarginsZero: true},
 						Children: []Widget{
-							TabWidget{
-								AssignTo: &zoneSubTW,
+							TextEdit{
+								AssignTo: &snoopTE,
+								ReadOnly: true,
+								VScroll:  true,
+								Font:     Font{Family: "Courier New", PointSize: 9},
 							},
 						},
 					},
@@ -256,6 +259,7 @@ func openSettingsWindow() {
 	tabWidget.CurrentIndexChanged().Attach(func() {
 		logTE.SetTextSelection(0, 0)
 		zoneTE.SetTextSelection(0, 0)
+		snoopTE.SetTextSelection(0, 0)
 	})
 
 	save := func() {
@@ -312,41 +316,17 @@ func openSettingsWindow() {
 		}
 	}()
 
-	rebuildZoneSnoop := func(zones []zoneData) {
-		for zoneSubTW.Pages().Len() > 0 {
-			zoneSubTW.Pages().RemoveAt(0)
-		}
-		for _, zone := range zones {
-			page, err := walk.NewTabPage()
-			if err != nil {
-				continue
-			}
-			page.SetTitle(fmt.Sprintf("%s (%d)", zone.Name, len(zone.Characters)))
-			if err := zoneSubTW.Pages().Add(page); err != nil {
-				continue
-			}
-			page.SetLayout(walk.NewVBoxLayout())
-			te, err := walk.NewTextEdit(page)
-			if err != nil {
-				continue
-			}
-			te.SetReadOnly(true)
-			if font, err := walk.NewFont("Courier New", 9, 0); err == nil {
-				te.SetFont(font)
-			}
-			te.SetText(buildZoneContent(zone))
-		}
-	}
-
 	go func() {
 		doFetch := func() {
 			zones, err := fetchZoneSnoop()
 			if err != nil {
 				return
 			}
+			text := buildAllZonesContent(zones)
 			trayOwner.Synchronize(func() {
 				if settingsDlg != nil {
-					rebuildZoneSnoop(zones)
+					snoopTE.SetText(text)
+					snoopTE.SetTextSelection(0, 0)
 				}
 			})
 		}
