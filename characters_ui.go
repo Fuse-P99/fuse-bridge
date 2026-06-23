@@ -181,11 +181,81 @@ func buildCharContent(name, eqDir string) string {
 	return strings.TrimRight(sb.String(), "\r\n")
 }
 
-// searchInContent returns the byte offset of the first case-insensitive
-// occurrence of query in content, or -1 if not found.
-func searchInContent(content, query string) int {
+// allMatches returns the byte offsets of every case-insensitive occurrence of
+// query in content.
+func allMatches(content, query string) []int {
 	if query == "" {
-		return -1
+		return nil
 	}
-	return strings.Index(strings.ToLower(content), strings.ToLower(query))
+	lower := strings.ToLower(content)
+	lowerQ := strings.ToLower(query)
+	var offsets []int
+	for start := 0; ; {
+		pos := strings.Index(lower[start:], lowerQ)
+		if pos < 0 {
+			break
+		}
+		offsets = append(offsets, start+pos)
+		start += pos + len(lowerQ)
+	}
+	return offsets
+}
+
+// --- Filtered toons ---
+
+var (
+	filteredToonsMu sync.RWMutex
+	filteredToons   = make(map[string]bool) // lower-cased names
+)
+
+func filteredToonsPath() string {
+	dir, _ := os.UserCacheDir()
+	return filepath.Join(dir, "FuseBridgekeeper", "filtered.json")
+}
+
+func loadFilteredToons() {
+	data, err := os.ReadFile(filteredToonsPath())
+	if err != nil {
+		return
+	}
+	var names []string
+	if json.Unmarshal(data, &names) == nil {
+		filteredToonsMu.Lock()
+		for _, n := range names {
+			filteredToons[n] = true
+		}
+		filteredToonsMu.Unlock()
+	}
+}
+
+func saveFilteredToons() {
+	filteredToonsMu.RLock()
+	names := make([]string, 0, len(filteredToons))
+	for n := range filteredToons {
+		names = append(names, n)
+	}
+	filteredToonsMu.RUnlock()
+	slices.Sort(names)
+	data, _ := json.Marshal(names)
+	path := filteredToonsPath()
+	_ = os.MkdirAll(filepath.Dir(path), 0700)
+	_ = os.WriteFile(path, data, 0600)
+}
+
+func IsFilteredToon(name string) bool {
+	filteredToonsMu.RLock()
+	defer filteredToonsMu.RUnlock()
+	return filteredToons[strings.ToLower(name)]
+}
+
+func ToggleFilteredToon(name string) {
+	lower := strings.ToLower(name)
+	filteredToonsMu.Lock()
+	if filteredToons[lower] {
+		delete(filteredToons, lower)
+	} else {
+		filteredToons[lower] = true
+	}
+	filteredToonsMu.Unlock()
+	saveFilteredToons()
 }

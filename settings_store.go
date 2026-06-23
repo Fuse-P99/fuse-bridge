@@ -17,6 +17,7 @@ type Settings struct {
 	WhoOutput          bool   `json:"who_output"`
 	CharacterLocations bool   `json:"character_locations"`
 	ExcludeBots        bool   `json:"exclude_bots"`
+	ExcludeFiltered    bool   `json:"exclude_filtered"`
 	StartupConfigured  bool   `json:"startup_configured"`
 	EQDirectory        string `json:"eq_directory"`
 }
@@ -41,6 +42,8 @@ func LoadSettings() Settings {
 		EngageMessages:     true,
 		WhoOutput:          true,
 		CharacterLocations: true,
+		ExcludeBots:        true,
+		ExcludeFiltered:    true,
 	}
 	path := settingsPath()
 	data, err := os.ReadFile(path)

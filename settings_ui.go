@@ -27,10 +27,13 @@ func openSettingsWindow() {
 		tabWidget    *walk.TabWidget
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
-		charSearch     *walk.LineEdit
-		excludeBotsCB  *walk.CheckBox
-		charLB         *walk.ListBox
-		charTE         *walk.TextEdit
+		charSearch        *walk.LineEdit
+		prevMatchBtn      *walk.PushButton
+		nextMatchBtn      *walk.PushButton
+		excludeBotsCB     *walk.CheckBox
+		excludeFilteredCB *walk.CheckBox
+		charLB            *walk.ListBox
+		charTE            *walk.TextEdit
 		snoopLB      *walk.ListBox
 		snoopTE      *walk.TextEdit
 		guildChatCB  *walk.CheckBox
@@ -200,6 +203,7 @@ func openSettingsWindow() {
 						Title:  "Characters",
 						Layout: VBox{MarginsZero: true},
 						Children: []Widget{
+							// Search row: text box + prev/next match buttons
 							Composite{
 								Layout: HBox{MarginsZero: true},
 								Children: []Widget{
@@ -207,13 +211,35 @@ func openSettingsWindow() {
 										AssignTo:  &charSearch,
 										CueBanner: "Search name, inventory, spells...",
 									},
+									PushButton{
+										AssignTo: &prevMatchBtn,
+										Text:     "↑",
+										MaxSize:  Size{Width: 30},
+									},
+									PushButton{
+										AssignTo: &nextMatchBtn,
+										Text:     "↓",
+										MaxSize:  Size{Width: 30},
+									},
+								},
+							},
+							// Filter checkboxes row
+							Composite{
+								Layout: HBox{MarginsZero: true},
+								Children: []Widget{
 									CheckBox{
 										AssignTo: &excludeBotsCB,
 										Text:     "Exclude Bots",
 										Checked:  s.ExcludeBots,
 									},
+									CheckBox{
+										AssignTo: &excludeFilteredCB,
+										Text:     "Exclude Filtered",
+										Checked:  s.ExcludeFiltered,
+									},
 								},
 							},
+							// Main content: character list + detail pane
 							Composite{
 								Layout: HBox{MarginsZero: true},
 								Children: []Widget{
@@ -277,8 +303,13 @@ func openSettingsWindow() {
 	})
 
 	// --- Characters tab ---
+	const emScrollCaret = 0x00B7
+	const lbItemFromPoint = 0x01A9
+
 	eqDir := GetSettings().EQDirectory
 	var charDisplayed []string // names currently shown in charLB (may be filtered)
+	var matchOffsets []int     // byte offsets of query hits in current right-pane content
+	var matchIdx int           // which match is currently highlighted
 
 	getCurrentCharName := func() string {
 		idx := charLB.CurrentIndex()
@@ -288,34 +319,46 @@ func openSettingsWindow() {
 		return charDisplayed[idx]
 	}
 
+	// jumpToMatch highlights matchOffsets[matchIdx] in the TextEdit and scrolls to it.
+	jumpToMatch := func() {
+		if len(matchOffsets) == 0 {
+			charTE.SetTextSelection(0, 0)
+			return
+		}
+		query := charSearch.Text()
+		pos := matchOffsets[matchIdx]
+		charTE.SetTextSelection(pos, pos+len(query))
+		charTE.SendMessage(emScrollCaret, 0, 0)
+	}
+
 	updateCharDetail := func() {
 		name := getCurrentCharName()
 		if name == "" {
 			charTE.SetText("")
+			matchOffsets = nil
 			return
 		}
 		content := buildCharContent(name, eqDir)
 		charTE.SetText(content)
-		query := charSearch.Text()
-		if query != "" {
-			if pos := searchInContent(content, query); pos >= 0 {
-				charTE.SetTextSelection(pos, pos+len(query))
-				return
-			}
-		}
-		charTE.SetTextSelection(0, 0)
+		matchOffsets = allMatches(content, charSearch.Text())
+		matchIdx = 0
+		jumpToMatch()
 	}
 
 	applyCharFilter := func() {
 		allNames := getAllCharNames(eqDir)
 		query := charSearch.Text()
 		excludeBots := excludeBotsCB.Checked()
+		excludeFiltered := excludeFilteredCB.Checked()
 		prevName := getCurrentCharName()
 
 		lower := strings.ToLower(query)
 		var filtered []string
 		for _, n := range allNames {
 			if excludeBots && IsBotToon(n) {
+				continue
+			}
+			if excludeFiltered && IsFilteredToon(n) {
 				continue
 			}
 			if query == "" {
@@ -345,13 +388,69 @@ func openSettingsWindow() {
 		}
 		if len(charDisplayed) > 0 {
 			charLB.SetCurrentIndex(newIdx)
+			updateCharDetail() // force refresh even when index didn't change
 		} else {
 			charTE.SetText("")
+			matchOffsets = nil
 		}
 	}
 
 	charLB.CurrentIndexChanged().Attach(updateCharDetail)
 	charSearch.TextChanged().Attach(applyCharFilter)
+
+	// ↑ / ↓ buttons navigate through matches within the right pane.
+	prevMatchBtn.Clicked().Attach(func() {
+		if len(matchOffsets) == 0 {
+			return
+		}
+		matchIdx = (matchIdx - 1 + len(matchOffsets)) % len(matchOffsets)
+		jumpToMatch()
+	})
+	nextMatchBtn.Clicked().Attach(func() {
+		if len(matchOffsets) == 0 {
+			return
+		}
+		matchIdx = (matchIdx + 1) % len(matchOffsets)
+		jumpToMatch()
+	})
+
+	// Right-click context menu on the character list.
+	charMenu, _ := walk.NewMenu()
+	charFilterAction := walk.NewAction()
+	_ = charMenu.Actions().Add(charFilterAction)
+	charLB.SetContextMenu(charMenu)
+
+	var rightClickedName string
+	charLB.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+		if button != walk.RightButton {
+			return
+		}
+		lp := uintptr(x&0xffff) | uintptr(y&0xffff)<<16
+		result := charLB.SendMessage(lbItemFromPoint, 0, lp)
+		if result>>16 != 0 { // point outside list bounds
+			rightClickedName = ""
+			return
+		}
+		idx := int(result & 0xFFFF)
+		if idx < 0 || idx >= len(charDisplayed) {
+			rightClickedName = ""
+			return
+		}
+		rightClickedName = charDisplayed[idx]
+		if IsFilteredToon(rightClickedName) {
+			charFilterAction.SetText("Unfilter")
+		} else {
+			charFilterAction.SetText("Filter")
+		}
+	})
+	charFilterAction.Triggered().Attach(func() {
+		if rightClickedName == "" {
+			return
+		}
+		ToggleFilteredToon(rightClickedName)
+		applyCharFilter()
+	})
+
 	applyCharFilter()
 
 	// --- Zone Snoop tab ---
@@ -378,6 +477,7 @@ func openSettingsWindow() {
 			WhoOutput:          whoOutputCB.Checked(),
 			CharacterLocations: charLocCB.Checked(),
 			ExcludeBots:        excludeBotsCB.Checked(),
+			ExcludeFiltered:    excludeFilteredCB.Checked(),
 			StartupConfigured:  current.StartupConfigured,
 			EQDirectory:        current.EQDirectory,
 		})
@@ -391,6 +491,10 @@ func openSettingsWindow() {
 	whoOutputCB.CheckedChanged().Attach(save)
 	charLocCB.CheckedChanged().Attach(save)
 	excludeBotsCB.CheckedChanged().Attach(func() {
+		save()
+		applyCharFilter()
+	})
+	excludeFilteredCB.CheckedChanged().Attach(func() {
 		save()
 		applyCharFilter()
 	})
