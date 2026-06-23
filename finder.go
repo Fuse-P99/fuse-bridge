@@ -198,7 +198,7 @@ func findActiveLogFile(installDir string) string {
 			continue
 		}
 		name := e.Name()
-		if !strings.HasPrefix(name, "eqlog_") || !strings.HasSuffix(name, "_P1999.txt") {
+		if !strings.HasPrefix(name, "eqlog_") || !strings.HasSuffix(name, "_project1999.txt") {
 			continue
 		}
 		info, err := e.Info()
