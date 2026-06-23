@@ -1,13 +1,62 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
+
+// botToons holds the lowercase names of toons belonging to the fusebot member.
+var (
+	botToonsMu sync.RWMutex
+	botToons   = make(map[string]bool)
+)
+
+// IsBotToon reports whether name is a fusebot-owned toon (case-insensitive).
+func IsBotToon(name string) bool {
+	botToonsMu.RLock()
+	defer botToonsMu.RUnlock()
+	return botToons[strings.ToLower(name)]
+}
+
+// fetchBotToons retrieves the list of fusebot toons from the server and
+// populates botToons. Called once on startup.
+func fetchBotToons() {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	req, err := http.NewRequest(http.MethodGet, base+"/bottoons", nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		addStatus("Bot toons fetch error: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+	var result struct {
+		Names []string `json:"names"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return
+	}
+	botToonsMu.Lock()
+	for _, n := range result.Names {
+		botToons[strings.ToLower(n)] = true
+	}
+	botToonsMu.Unlock()
+	addStatus("Loaded %d bot toon(s)", len(result.Names))
+}
 
 // getAllCharNames returns the union of character names known from the zone cache
 // and EQ log files under eqDir/Logs, sorted alphabetically. Case-insensitive

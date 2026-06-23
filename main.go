@@ -17,6 +17,7 @@ func main() {
 
 	currentSettings = LoadSettings()
 	LoadZones()
+	go fetchBotToons()
 
 	// On first run, or when migrating from the old registry-based approach,
 	// enable auto-start and record that we've done it.

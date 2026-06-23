@@ -16,6 +16,7 @@ type Settings struct {
 	EngageMessages     bool   `json:"engage_messages"`
 	WhoOutput          bool   `json:"who_output"`
 	CharacterLocations bool   `json:"character_locations"`
+	ExcludeBots        bool   `json:"exclude_bots"`
 	StartupConfigured  bool   `json:"startup_configured"`
 	EQDirectory        string `json:"eq_directory"`
 }

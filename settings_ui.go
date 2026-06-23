@@ -27,9 +27,10 @@ func openSettingsWindow() {
 		tabWidget    *walk.TabWidget
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
-		charSearch   *walk.LineEdit
-		charLB       *walk.ListBox
-		charTE       *walk.TextEdit
+		charSearch     *walk.LineEdit
+		excludeBotsCB  *walk.CheckBox
+		charLB         *walk.ListBox
+		charTE         *walk.TextEdit
 		snoopLB      *walk.ListBox
 		snoopTE      *walk.TextEdit
 		guildChatCB  *walk.CheckBox
@@ -199,9 +200,19 @@ func openSettingsWindow() {
 						Title:  "Characters",
 						Layout: VBox{MarginsZero: true},
 						Children: []Widget{
-							LineEdit{
-								AssignTo:  &charSearch,
-								CueBanner: "Search name, inventory, spells...",
+							Composite{
+								Layout: HBox{MarginsZero: true},
+								Children: []Widget{
+									LineEdit{
+										AssignTo:  &charSearch,
+										CueBanner: "Search name, inventory, spells...",
+									},
+									CheckBox{
+										AssignTo: &excludeBotsCB,
+										Text:     "Exclude Bots",
+										Checked:  s.ExcludeBots,
+									},
+								},
 							},
 							Composite{
 								Layout: HBox{MarginsZero: true},
@@ -298,24 +309,28 @@ func openSettingsWindow() {
 	applyCharFilter := func() {
 		allNames := getAllCharNames(eqDir)
 		query := charSearch.Text()
+		excludeBots := excludeBotsCB.Checked()
 		prevName := getCurrentCharName()
 
-		if query == "" {
-			charDisplayed = allNames
-		} else {
-			lower := strings.ToLower(query)
-			var filtered []string
-			for _, n := range allNames {
-				if strings.Contains(strings.ToLower(n), lower) {
-					filtered = append(filtered, n)
-					continue
-				}
-				if strings.Contains(strings.ToLower(buildCharContent(n, eqDir)), lower) {
-					filtered = append(filtered, n)
-				}
+		lower := strings.ToLower(query)
+		var filtered []string
+		for _, n := range allNames {
+			if excludeBots && IsBotToon(n) {
+				continue
 			}
-			charDisplayed = filtered
+			if query == "" {
+				filtered = append(filtered, n)
+				continue
+			}
+			if strings.Contains(strings.ToLower(n), lower) {
+				filtered = append(filtered, n)
+				continue
+			}
+			if strings.Contains(strings.ToLower(buildCharContent(n, eqDir)), lower) {
+				filtered = append(filtered, n)
+			}
 		}
+		charDisplayed = filtered
 
 		items := make([]string, len(charDisplayed))
 		copy(items, charDisplayed)
@@ -362,6 +377,7 @@ func openSettingsWindow() {
 			EngageMessages:     engageMsgCB.Checked(),
 			WhoOutput:          whoOutputCB.Checked(),
 			CharacterLocations: charLocCB.Checked(),
+			ExcludeBots:        excludeBotsCB.Checked(),
 			StartupConfigured:  current.StartupConfigured,
 			EQDirectory:        current.EQDirectory,
 		})
@@ -374,6 +390,10 @@ func openSettingsWindow() {
 	engageMsgCB.CheckedChanged().Attach(save)
 	whoOutputCB.CheckedChanged().Attach(save)
 	charLocCB.CheckedChanged().Attach(save)
+	excludeBotsCB.CheckedChanged().Attach(func() {
+		save()
+		applyCharFilter()
+	})
 	autoStartCB.CheckedChanged().Attach(func() {
 		if err := setAutoStart(autoStartCB.Checked()); err != nil {
 			addStatus("Auto-start: %v", err)
