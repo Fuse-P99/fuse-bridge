@@ -10,6 +10,7 @@ import (
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 )
 
 var settingsDlg *walk.Dialog
@@ -28,6 +29,7 @@ func openSettingsWindow() {
 		infoLb       *walk.Label
 		logTE        *walk.TextEdit
 		charSearch        *walk.LineEdit
+		matchCountLbl     *walk.Label
 		prevMatchBtn      *walk.PushButton
 		nextMatchBtn      *walk.PushButton
 		excludeBotsCB     *walk.CheckBox
@@ -203,13 +205,17 @@ func openSettingsWindow() {
 						Title:  "Characters",
 						Layout: VBox{MarginsZero: true},
 						Children: []Widget{
-							// Search row: text box + prev/next match buttons
+							// Search row: text box + match counter + prev/next buttons
 							Composite{
 								Layout: HBox{MarginsZero: true},
 								Children: []Widget{
 									LineEdit{
 										AssignTo:  &charSearch,
 										CueBanner: "Search name, inventory, spells...",
+									},
+									Label{
+										AssignTo: &matchCountLbl,
+										Text:     "",
 									},
 									PushButton{
 										AssignTo: &prevMatchBtn,
@@ -295,6 +301,12 @@ func openSettingsWindow() {
 	settingsDlg = dlg
 	applyDialogIcon(dlg)
 
+	// Make charTE show the selection highlight even when it doesn't have focus,
+	// so search matches are visible while the user types in charSearch.
+	const esNohidesel = int32(0x0100)
+	curStyle := win.GetWindowLong(charTE.Handle(), win.GWL_STYLE)
+	win.SetWindowLong(charTE.Handle(), win.GWL_STYLE, curStyle|esNohidesel)
+
 	// Clear selection whenever the user switches tabs so read-only TextEdits
 	// don't appear with all text highlighted on first focus.
 	tabWidget.CurrentIndexChanged().Attach(func() {
@@ -319,16 +331,19 @@ func openSettingsWindow() {
 		return charDisplayed[idx]
 	}
 
-	// jumpToMatch highlights matchOffsets[matchIdx] in the TextEdit and scrolls to it.
+	// jumpToMatch highlights matchOffsets[matchIdx] in the TextEdit, scrolls to
+	// it, and updates the X/Y counter label.
 	jumpToMatch := func() {
 		if len(matchOffsets) == 0 {
 			charTE.SetTextSelection(0, 0)
+			matchCountLbl.SetText("")
 			return
 		}
 		query := charSearch.Text()
 		pos := matchOffsets[matchIdx]
 		charTE.SetTextSelection(pos, pos+len(query))
 		charTE.SendMessage(emScrollCaret, 0, 0)
+		matchCountLbl.SetText(fmt.Sprintf("%d/%d", matchIdx+1, len(matchOffsets)))
 	}
 
 	updateCharDetail := func() {
@@ -336,6 +351,7 @@ func openSettingsWindow() {
 		if name == "" {
 			charTE.SetText("")
 			matchOffsets = nil
+			matchCountLbl.SetText("")
 			return
 		}
 		content := buildCharContent(name, eqDir)
