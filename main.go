@@ -18,6 +18,7 @@ func main() {
 	currentSettings = LoadSettings()
 	LoadZones()
 	loadFilteredToons()
+	LoadRaidMobs()
 	go fetchBotToons()
 
 	// On first run, or when migrating from the old registry-based approach,

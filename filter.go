@@ -15,6 +15,8 @@ var (
 	serverMsgPattern   = regexp.MustCompile(`<\[SERVER MESSAGE\]>:`)
 	quakePattern       = regexp.MustCompile(`(?:You feel the (?:need to get somewhere safe quickly|sudden urge to seek a safe location)|The gods have awoken|The Gods of Norrath emit|The Gods strike all|Minions gather)`)
 	engagePattern      = regexp.MustCompile(` engages \w+!`)
+	slainPattern      = regexp.MustCompile(` has been slain by .+!`)
+	slainMobExtractRE = regexp.MustCompile(`(?:\t|] )(.+?) has been slain by`)
 	enteredZonePattern = regexp.MustCompile(`You have entered (.+)\.`)
 	// Matches /who output lines: header, player entries (including LINKDEAD/AFK prefixes), and footer.
 	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There are \d+ players in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS)\])`)
@@ -106,7 +108,23 @@ func ShouldForward(line string) bool {
 	if s.CharacterLocations && enteredZonePattern.MatchString(line) {
 		return true
 	}
+	if s.SlainMessages && isRaidMobSlain(line) {
+		return true
+	}
 	return false
+}
+
+// isRaidMobSlain returns true when the slain mob name matches a mob flagged
+// as a raid mob in the locally cached list fetched from the server.
+func isRaidMobSlain(line string) bool {
+	if !slainPattern.MatchString(line) {
+		return false
+	}
+	m := slainMobExtractRE.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return false
+	}
+	return IsRaidMob(m[1])
 }
 
 // ExtractZone returns the zone name from a "You have entered X." line, or "".

@@ -46,6 +46,7 @@ func openSettingsWindow() {
 		engageMsgCB       *walk.CheckBox
 		whoOutputCB       *walk.CheckBox
 		charLocCB         *walk.CheckBox
+		slainMsgCB        *walk.CheckBox
 		autoStartCB       *walk.CheckBox
 		eqDirLE           *walk.LineEdit
 		clientsTE         *walk.TextEdit
@@ -143,7 +144,7 @@ func openSettingsWindow() {
 			},
 		},
 		{
-			Title:  "Filters",
+			Title:  "Relay",
 			Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
 			Children: []Widget{
 				CheckBox{
@@ -185,6 +186,11 @@ func openSettingsWindow() {
 					AssignTo: &charLocCB,
 					Text:     "Character locations",
 					Checked:  s.CharacterLocations,
+				},
+				CheckBox{
+					AssignTo: &slainMsgCB,
+					Text:     "Slain messages",
+					Checked:  s.SlainMessages,
 				},
 				VSpacer{},
 			},
@@ -250,7 +256,7 @@ func openSettingsWindow() {
 			},
 		},
 		{
-			Title:  "Zone Snoop",
+			Title:  "Zones",
 			Layout: HBox{MarginsZero: true},
 			Children: []Widget{
 				ListBox{
@@ -505,6 +511,7 @@ func openSettingsWindow() {
 			EngageMessages:     engageMsgCB.Checked(),
 			WhoOutput:          whoOutputCB.Checked(),
 			CharacterLocations: charLocCB.Checked(),
+			SlainMessages:      slainMsgCB.Checked(),
 			ExcludeBots:        excludeBotsCB.Checked(),
 			ExcludeFiltered:    excludeFilteredCB.Checked(),
 			StartupConfigured:  current.StartupConfigured,
@@ -520,6 +527,7 @@ func openSettingsWindow() {
 	engageMsgCB.CheckedChanged().Attach(save)
 	whoOutputCB.CheckedChanged().Attach(save)
 	charLocCB.CheckedChanged().Attach(save)
+	slainMsgCB.CheckedChanged().Attach(save)
 	excludeBotsCB.CheckedChanged().Attach(func() {
 		save()
 		applyCharFilter()

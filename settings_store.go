@@ -21,6 +21,7 @@ type Settings struct {
 	StartupConfigured  bool   `json:"startup_configured"`
 	EQDirectory        string `json:"eq_directory"`
 	AdminMode          bool   `json:"admin_mode"`
+	SlainMessages      bool   `json:"slain_messages"`
 }
 
 var (
