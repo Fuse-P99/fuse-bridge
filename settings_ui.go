@@ -134,7 +134,18 @@ func openSettingsWindow() {
 							},
 							VSeparator{},
 							Label{Text: "Fuse Bridge v" + clientVersion},
-							VSpacer{},
+							VSeparator{},
+							Label{
+								AssignTo: &infoLb,
+								Text:     buildInfo(),
+							},
+							VSeparator{},
+							TextEdit{
+								AssignTo: &logTE,
+								Text:     buildActivity(),
+								ReadOnly: true,
+								VScroll:  true,
+							},
 						},
 					},
 					{
@@ -182,23 +193,6 @@ func openSettingsWindow() {
 								Checked:  s.CharacterLocations,
 							},
 							VSpacer{},
-						},
-					},
-					{
-						Title:  "Status",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
-						Children: []Widget{
-							Label{
-								AssignTo: &infoLb,
-								Text:     buildInfo(),
-							},
-							VSeparator{},
-							TextEdit{
-								AssignTo: &logTE,
-								Text:     buildActivity(),
-								ReadOnly: true,
-								VScroll:  true,
-							},
 						},
 					},
 					{
@@ -547,6 +541,9 @@ func openSettingsWindow() {
 				if settingsDlg == nil {
 					return
 				}
+				if win.GetForegroundWindow() != settingsDlg.Handle() {
+					return
+				}
 				infoLb.SetText(buildInfo())
 				logTE.SetText(buildActivity())
 				logTE.SetTextSelection(0, 0)
@@ -564,6 +561,9 @@ func openSettingsWindow() {
 			}
 			trayOwner.Synchronize(func() {
 				if settingsDlg == nil {
+					return
+				}
+				if win.GetForegroundWindow() != settingsDlg.Handle() {
 					return
 				}
 				// Remember the currently selected zone so we can restore it.
