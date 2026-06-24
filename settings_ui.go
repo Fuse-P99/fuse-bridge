@@ -48,6 +48,7 @@ func openSettingsWindow() {
 		charLocCB         *walk.CheckBox
 		autoStartCB       *walk.CheckBox
 		eqDirLE           *walk.LineEdit
+		clientsTE         *walk.TextEdit
 	)
 
 	buildInfo := func() string {
@@ -73,6 +74,215 @@ func openSettingsWindow() {
 		return strings.Join(lines, "\r\n")
 	}
 
+	// Build the tab pages slice. The Clients tab is appended when AdminMode is on.
+	tabPages := []TabPage{
+		{
+			Title:  "General",
+			Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+			Children: []Widget{
+				CheckBox{
+					AssignTo: &autoStartCB,
+					Text:     "Start automatically with Windows",
+					Checked:  isAutoStartEnabled(),
+				},
+				VSeparator{},
+				Label{Text: "EQ Install Directory:"},
+				Composite{
+					Layout: HBox{MarginsZero: true},
+					Children: []Widget{
+						LineEdit{
+							AssignTo: &eqDirLE,
+							Text:     s.EQDirectory,
+							ReadOnly: true,
+						},
+						PushButton{
+							Text: "Browse...",
+							OnClicked: func() {
+								cmd := noWindowCmd("powershell", "-NoProfile", "-NonInteractive", "-Command",
+									`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');`+
+										`$d=New-Object System.Windows.Forms.FolderBrowserDialog;`+
+										`$d.Description='Select your EverQuest installation folder';`+
+										`$d.RootFolder=[System.Environment+SpecialFolder]::MyComputer;`+
+										`if($d.ShowDialog() -eq 'OK'){$d.SelectedPath}`)
+								out, err := cmd.Output()
+								if err != nil {
+									return
+								}
+								path := strings.TrimSpace(string(out))
+								if path == "" {
+									return
+								}
+								if _, err := os.Stat(filepath.Join(path, "Logs")); err != nil {
+									walk.MsgBox(settingsDlg, "Invalid folder",
+										"The selected folder does not contain a Logs subfolder.\nPlease select your EverQuest installation folder.",
+										walk.MsgBoxIconError|walk.MsgBoxOK)
+									return
+								}
+								eqDirLE.SetText(path)
+								cur := GetSettings()
+								cur.EQDirectory = path
+								UpdateSettings(cur)
+							},
+						},
+					},
+				},
+				VSeparator{},
+				Label{Text: "Fuse Bridge v" + clientVersion},
+				VSeparator{},
+				Label{
+					AssignTo: &infoLb,
+					Text:     buildInfo(),
+				},
+				VSeparator{},
+				TextEdit{
+					AssignTo: &logTE,
+					Text:     buildActivity(),
+					ReadOnly: true,
+					VScroll:  true,
+				},
+			},
+		},
+		{
+			Title:  "Filters",
+			Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
+			Children: []Widget{
+				CheckBox{
+					AssignTo: &guildChatCB,
+					Text:     "Guild chat",
+					Checked:  s.GuildChat,
+				},
+				CheckBox{
+					AssignTo: &guildMotdCB,
+					Text:     "Guild MOTD",
+					Checked:  s.GuildMotd,
+				},
+				CheckBox{
+					AssignTo: &broadcastsCB,
+					Text:     "GM Broadcasts",
+					Checked:  s.Broadcasts,
+				},
+				CheckBox{
+					AssignTo: &serverMsgCB,
+					Text:     "Server Messages",
+					Checked:  s.ServerMessages,
+				},
+				CheckBox{
+					AssignTo: &quakeMsgCB,
+					Text:     "Quake messages",
+					Checked:  s.QuakeMessages,
+				},
+				CheckBox{
+					AssignTo: &engageMsgCB,
+					Text:     "Engage messages",
+					Checked:  s.EngageMessages,
+				},
+				CheckBox{
+					AssignTo: &whoOutputCB,
+					Text:     "/who output",
+					Checked:  s.WhoOutput,
+				},
+				CheckBox{
+					AssignTo: &charLocCB,
+					Text:     "Character locations",
+					Checked:  s.CharacterLocations,
+				},
+				VSpacer{},
+			},
+		},
+		{
+			Title:  "Characters",
+			Layout: VBox{MarginsZero: true},
+			Children: []Widget{
+				Composite{
+					Layout: HBox{MarginsZero: true},
+					Children: []Widget{
+						LineEdit{
+							AssignTo:  &charSearch,
+							CueBanner: "Search name, inventory, spells...",
+						},
+						Label{
+							AssignTo: &matchCountLbl,
+							Text:     "",
+						},
+						PushButton{
+							AssignTo: &prevMatchBtn,
+							Text:     "↑",
+							MaxSize:  Size{Width: 30},
+						},
+						PushButton{
+							AssignTo: &nextMatchBtn,
+							Text:     "↓",
+							MaxSize:  Size{Width: 30},
+						},
+					},
+				},
+				Composite{
+					Layout: HBox{MarginsZero: true},
+					Children: []Widget{
+						CheckBox{
+							AssignTo: &excludeBotsCB,
+							Text:     "Exclude Bots",
+							Checked:  s.ExcludeBots,
+						},
+						CheckBox{
+							AssignTo: &excludeFilteredCB,
+							Text:     "Exclude Filtered",
+							Checked:  s.ExcludeFiltered,
+						},
+					},
+				},
+				Composite{
+					Layout: HBox{MarginsZero: true},
+					Children: []Widget{
+						ListBox{
+							AssignTo: &charLB,
+							MinSize:  Size{Width: 200},
+							MaxSize:  Size{Width: 200},
+						},
+						TextEdit{
+							AssignTo: &charTE,
+							ReadOnly: true,
+							VScroll:  true,
+							Font:     Font{Family: "Courier New", PointSize: 9},
+						},
+					},
+				},
+			},
+		},
+		{
+			Title:  "Zone Snoop",
+			Layout: HBox{MarginsZero: true},
+			Children: []Widget{
+				ListBox{
+					AssignTo: &snoopLB,
+					MinSize:  Size{Width: 200},
+					MaxSize:  Size{Width: 200},
+				},
+				TextEdit{
+					AssignTo: &snoopTE,
+					ReadOnly: true,
+					VScroll:  true,
+					Font:     Font{Family: "Courier New", PointSize: 9},
+				},
+			},
+		},
+	}
+
+	if s.AdminMode {
+		tabPages = append(tabPages, TabPage{
+			Title:  "Clients",
+			Layout: VBox{MarginsZero: true},
+			Children: []Widget{
+				TextEdit{
+					AssignTo: &clientsTE,
+					ReadOnly: true,
+					VScroll:  true,
+					Font:     Font{Family: "Courier New", PointSize: 9},
+				},
+			},
+		})
+	}
+
 	if err := (Dialog{
 		AssignTo: &dlg,
 		Title:    "Fuse Bridge — Settings",
@@ -81,201 +291,7 @@ func openSettingsWindow() {
 		Children: []Widget{
 			TabWidget{
 				AssignTo: &tabWidget,
-				Pages: []TabPage{
-					{
-						Title:  "General",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
-						Children: []Widget{
-							CheckBox{
-								AssignTo: &autoStartCB,
-								Text:     "Start automatically with Windows",
-								Checked:  isAutoStartEnabled(),
-							},
-							VSeparator{},
-							Label{Text: "EQ Install Directory:"},
-							Composite{
-								Layout: HBox{MarginsZero: true},
-								Children: []Widget{
-									LineEdit{
-										AssignTo: &eqDirLE,
-										Text:     s.EQDirectory,
-										ReadOnly: true,
-									},
-									PushButton{
-										Text: "Browse...",
-										OnClicked: func() {
-											cmd := noWindowCmd("powershell", "-NoProfile", "-NonInteractive", "-Command",
-												`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');`+
-													`$d=New-Object System.Windows.Forms.FolderBrowserDialog;`+
-													`$d.Description='Select your EverQuest installation folder';`+
-													`$d.RootFolder=[System.Environment+SpecialFolder]::MyComputer;`+
-													`if($d.ShowDialog() -eq 'OK'){$d.SelectedPath}`)
-											out, err := cmd.Output()
-											if err != nil {
-												return
-											}
-											path := strings.TrimSpace(string(out))
-											if path == "" {
-												return
-											}
-											if _, err := os.Stat(filepath.Join(path, "Logs")); err != nil {
-												walk.MsgBox(settingsDlg, "Invalid folder",
-													"The selected folder does not contain a Logs subfolder.\nPlease select your EverQuest installation folder.",
-													walk.MsgBoxIconError|walk.MsgBoxOK)
-												return
-											}
-											eqDirLE.SetText(path)
-											cur := GetSettings()
-											cur.EQDirectory = path
-											UpdateSettings(cur)
-										},
-									},
-								},
-							},
-							VSeparator{},
-							Label{Text: "Fuse Bridge v" + clientVersion},
-							VSeparator{},
-							Label{
-								AssignTo: &infoLb,
-								Text:     buildInfo(),
-							},
-							VSeparator{},
-							TextEdit{
-								AssignTo: &logTE,
-								Text:     buildActivity(),
-								ReadOnly: true,
-								VScroll:  true,
-							},
-						},
-					},
-					{
-						Title:  "Filters",
-						Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true},
-						Children: []Widget{
-							CheckBox{
-								AssignTo: &guildChatCB,
-								Text:     "Guild chat",
-								Checked:  s.GuildChat,
-							},
-							CheckBox{
-								AssignTo: &guildMotdCB,
-								Text:     "Guild MOTD",
-								Checked:  s.GuildMotd,
-							},
-							CheckBox{
-								AssignTo: &broadcastsCB,
-								Text:     "GM Broadcasts",
-								Checked:  s.Broadcasts,
-							},
-							CheckBox{
-								AssignTo: &serverMsgCB,
-								Text:     "Server Messages",
-								Checked:  s.ServerMessages,
-							},
-							CheckBox{
-								AssignTo: &quakeMsgCB,
-								Text:     "Quake messages",
-								Checked:  s.QuakeMessages,
-							},
-							CheckBox{
-								AssignTo: &engageMsgCB,
-								Text:     "Engage messages",
-								Checked:  s.EngageMessages,
-							},
-							CheckBox{
-								AssignTo: &whoOutputCB,
-								Text:     "/who output",
-								Checked:  s.WhoOutput,
-							},
-							CheckBox{
-								AssignTo: &charLocCB,
-								Text:     "Character locations",
-								Checked:  s.CharacterLocations,
-							},
-							VSpacer{},
-						},
-					},
-					{
-						Title:  "Characters",
-						Layout: VBox{MarginsZero: true},
-						Children: []Widget{
-							// Search row: text box + match counter + prev/next buttons
-							Composite{
-								Layout: HBox{MarginsZero: true},
-								Children: []Widget{
-									LineEdit{
-										AssignTo:  &charSearch,
-										CueBanner: "Search name, inventory, spells...",
-									},
-									Label{
-										AssignTo: &matchCountLbl,
-										Text:     "",
-									},
-									PushButton{
-										AssignTo: &prevMatchBtn,
-										Text:     "↑",
-										MaxSize:  Size{Width: 30},
-									},
-									PushButton{
-										AssignTo: &nextMatchBtn,
-										Text:     "↓",
-										MaxSize:  Size{Width: 30},
-									},
-								},
-							},
-							// Filter checkboxes row
-							Composite{
-								Layout: HBox{MarginsZero: true},
-								Children: []Widget{
-									CheckBox{
-										AssignTo: &excludeBotsCB,
-										Text:     "Exclude Bots",
-										Checked:  s.ExcludeBots,
-									},
-									CheckBox{
-										AssignTo: &excludeFilteredCB,
-										Text:     "Exclude Filtered",
-										Checked:  s.ExcludeFiltered,
-									},
-								},
-							},
-							// Main content: character list + detail pane
-							Composite{
-								Layout: HBox{MarginsZero: true},
-								Children: []Widget{
-									ListBox{
-										AssignTo: &charLB,
-										MinSize:  Size{Width: 200},
-										MaxSize:  Size{Width: 200},
-									},
-									TextEdit{
-										AssignTo: &charTE,
-										ReadOnly: true,
-										VScroll:  true,
-										Font:     Font{Family: "Courier New", PointSize: 9},
-									},
-								},
-							},
-						},
-					},
-					{
-						Title:  "Zone Snoop",
-						Layout: HBox{MarginsZero: true},
-						Children: []Widget{
-							ListBox{
-								AssignTo: &snoopLB,
-								MinSize:  Size{Width: 200},
-								MaxSize:  Size{Width: 200},
-							},
-							TextEdit{
-								AssignTo: &snoopTE,
-								ReadOnly: true,
-								VScroll:  true,
-								Font:     Font{Family: "Courier New", PointSize: 9},
-							},
-						},
-					},
-				},
+				Pages:    tabPages,
 			},
 			Composite{
 				Layout: HBox{},
@@ -295,17 +311,15 @@ func openSettingsWindow() {
 	settingsDlg = dlg
 	applyDialogIcon(dlg)
 
-	// walk's TextEdit is a plain Win32 EDIT control. Add ES_NOHIDESEL (0x0100)
-	// so the selection highlight is visible even when the control lacks focus
-	// (e.g. while the user is typing in charSearch).
 	teStyle := win.GetWindowLong(charTE.Handle(), win.GWL_STYLE)
 	win.SetWindowLong(charTE.Handle(), win.GWL_STYLE, teStyle|0x0100)
 
-	// Clear selection whenever the user switches tabs so read-only TextEdits
-	// don't appear with all text highlighted on first focus.
 	tabWidget.CurrentIndexChanged().Attach(func() {
 		logTE.SetTextSelection(0, 0)
 		charTE.SetTextSelection(0, 0)
+		if clientsTE != nil {
+			clientsTE.SetTextSelection(0, 0)
+		}
 	})
 
 	// --- Characters tab ---
@@ -313,10 +327,10 @@ func openSettingsWindow() {
 	const lbItemFromPoint = 0x01A9
 
 	eqDir := GetSettings().EQDirectory
-	var charDisplayed []string // names currently shown in charLB (may be filtered)
-	var matchOffsets []int     // byte offsets of query hits in current right-pane content
-	var matchIdx int           // which match is currently highlighted
-	var lastDetailName string  // character whose content is currently shown
+	var charDisplayed []string
+	var matchOffsets []int
+	var matchIdx int
+	var lastDetailName string
 
 	getCurrentCharName := func() string {
 		idx := charLB.CurrentIndex()
@@ -326,8 +340,6 @@ func openSettingsWindow() {
 		return charDisplayed[idx]
 	}
 
-	// jumpToMatch highlights matchOffsets[matchIdx] in the TextEdit, scrolls to
-	// it, and updates the X/Y counter label.
 	jumpToMatch := func() {
 		if len(matchOffsets) == 0 {
 			charTE.SetTextSelection(0, 0)
@@ -338,7 +350,6 @@ func openSettingsWindow() {
 		pos := matchOffsets[matchIdx]
 		charTE.SetTextSelection(pos, pos+len(query))
 		charTE.SendMessage(emScrollCaret, 0, 0)
-		// Invalidate forces a repaint so ES_NOHIDESEL actually draws the highlight.
 		win.InvalidateRect(charTE.Handle(), nil, true)
 		matchCountLbl.SetText(fmt.Sprintf("%d/%d", matchIdx+1, len(matchOffsets)))
 	}
@@ -356,7 +367,6 @@ func openSettingsWindow() {
 		charTE.SetText(content)
 		newOffsets := allMatches(content, charSearch.Text())
 		if name != lastDetailName {
-			// Character changed — reset to first match.
 			matchIdx = 0
 		} else if matchIdx >= len(newOffsets) {
 			matchIdx = 0
@@ -409,7 +419,7 @@ func openSettingsWindow() {
 		}
 		if len(charDisplayed) > 0 {
 			charLB.SetCurrentIndex(newIdx)
-			updateCharDetail() // force refresh even when index didn't change
+			updateCharDetail()
 		} else {
 			charTE.SetText("")
 			matchOffsets = nil
@@ -419,7 +429,6 @@ func openSettingsWindow() {
 	charLB.CurrentIndexChanged().Attach(updateCharDetail)
 	charSearch.TextChanged().Attach(applyCharFilter)
 
-	// ↑ / ↓ buttons navigate through matches within the right pane.
 	prevMatchBtn.Clicked().Attach(func() {
 		if len(matchOffsets) == 0 {
 			return
@@ -435,7 +444,6 @@ func openSettingsWindow() {
 		jumpToMatch()
 	})
 
-	// Right-click context menu on the character list.
 	charMenu, _ := walk.NewMenu()
 	charFilterAction := walk.NewAction()
 	_ = charMenu.Actions().Add(charFilterAction)
@@ -448,7 +456,7 @@ func openSettingsWindow() {
 		}
 		lp := uintptr(x&0xffff) | uintptr(y&0xffff)<<16
 		result := charLB.SendMessage(lbItemFromPoint, 0, lp)
-		if result>>16 != 0 { // point outside list bounds
+		if result>>16 != 0 {
 			rightClickedName = ""
 			return
 		}
@@ -501,6 +509,7 @@ func openSettingsWindow() {
 			ExcludeFiltered:    excludeFilteredCB.Checked(),
 			StartupConfigured:  current.StartupConfigured,
 			EQDirectory:        current.EQDirectory,
+			AdminMode:          current.AdminMode,
 		})
 	}
 	guildChatCB.CheckedChanged().Attach(save)
@@ -529,7 +538,7 @@ func openSettingsWindow() {
 		settingsDlg = nil
 	})
 
-	// Auto-refresh the Status and Characters tabs every 2 seconds.
+	// Auto-refresh General tab (status + activity log) every 2 seconds.
 	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
@@ -547,12 +556,12 @@ func openSettingsWindow() {
 				infoLb.SetText(buildInfo())
 				logTE.SetText(buildActivity())
 				logTE.SetTextSelection(0, 0)
-				// Refresh the selected character's location time display.
 				updateCharDetail()
 			})
 		}
 	}()
 
+	// Zone Snoop tab refresh every 10 seconds.
 	go func() {
 		doFetch := func() {
 			zones, err := fetchZoneSnoop()
@@ -566,7 +575,6 @@ func openSettingsWindow() {
 				if win.GetForegroundWindow() != settingsDlg.Handle() {
 					return
 				}
-				// Remember the currently selected zone so we can restore it.
 				prevName := ""
 				if idx := snoopLB.CurrentIndex(); idx >= 0 && idx < len(snoopZones) {
 					prevName = snoopZones[idx].Name
@@ -577,7 +585,6 @@ func openSettingsWindow() {
 					items[i] = fmt.Sprintf("%s (%d)", z.Name, len(z.Characters))
 				}
 				snoopLB.SetModel(items)
-				// Restore previous selection, or default to first zone.
 				newIdx := 0
 				for i, z := range zones {
 					if z.Name == prevName {
@@ -600,6 +607,38 @@ func openSettingsWindow() {
 			doFetch()
 		}
 	}()
+
+	// Clients tab refresh every 15 seconds (admin only).
+	if clientsTE != nil {
+		go func() {
+			doFetch := func() {
+				clients, err := fetchClients()
+				if err != nil {
+					return
+				}
+				text := buildClientsText(clients)
+				trayOwner.Synchronize(func() {
+					if settingsDlg == nil {
+						return
+					}
+					if win.GetForegroundWindow() != settingsDlg.Handle() {
+						return
+					}
+					clientsTE.SetText(text)
+					clientsTE.SetTextSelection(0, 0)
+				})
+			}
+			doFetch()
+			ticker := time.NewTicker(15 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				if settingsDlg == nil {
+					return
+				}
+				doFetch()
+			}
+		}()
+	}
 
 	dlg.Show()
 }

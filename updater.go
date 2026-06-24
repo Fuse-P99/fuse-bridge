@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -59,9 +60,35 @@ func checkForUpdate() {
 	if vr.Version == "" || vr.Version == clientVersion {
 		return
 	}
+	if !versionGreaterThan(vr.Version, clientVersion) {
+		return // server version is not newer; don't downgrade
+	}
 
 	addStatus("Update available (%s → %s), downloading...", clientVersion, vr.Version)
 	applyUpdate(base)
+}
+
+// versionGreaterThan returns true when a is strictly newer than b.
+// Versions are expected in "major.minor.patch" form.
+func versionGreaterThan(a, b string) bool {
+	parse := func(v string) [3]int {
+		var parts [3]int
+		segs := strings.SplitN(v, ".", 3)
+		for i, s := range segs {
+			if i >= 3 {
+				break
+			}
+			parts[i], _ = strconv.Atoi(s)
+		}
+		return parts
+	}
+	av, bv := parse(a), parse(b)
+	for i := range av {
+		if av[i] != bv[i] {
+			return av[i] > bv[i]
+		}
+	}
+	return false
 }
 
 func applyUpdate(baseURL string) {

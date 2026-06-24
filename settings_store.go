@@ -20,6 +20,7 @@ type Settings struct {
 	ExcludeFiltered    bool   `json:"exclude_filtered"`
 	StartupConfigured  bool   `json:"startup_configured"`
 	EQDirectory        string `json:"eq_directory"`
+	AdminMode          bool   `json:"admin_mode"`
 }
 
 var (
