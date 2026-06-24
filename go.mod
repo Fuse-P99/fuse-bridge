@@ -1,4 +1,4 @@
-module eq-relay
+module FuseBridge
 
 go 1.23.0
 
