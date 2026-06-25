@@ -9,6 +9,7 @@
 
   let activeTab = 'general'
   let isAdmin   = false
+  let scale     = 1.2
 
   const baseTabs = [
     { id: 'general',    label: 'General'    },
@@ -24,7 +25,7 @@
   $: tabs = isAdmin ? [...baseTabs, { id: 'clients', label: 'Clients' }] : baseTabs
 </script>
 
-<div class="shell">
+<div class="shell" style="zoom:{scale}; height:calc(100vh / {scale})">
   <nav class="tab-bar">
     {#each tabs as t}
       <button
@@ -33,6 +34,12 @@
         on:click={() => activeTab = t.id}
       >{t.label}</button>
     {/each}
+
+    <div class="size-btns">
+      <button class="size-btn size-s" class:active={scale === 1.0} on:click={() => scale = 1.0} title="Small">A</button>
+      <button class="size-btn size-m" class:active={scale === 1.2} on:click={() => scale = 1.2} title="Medium">A</button>
+      <button class="size-btn size-l" class:active={scale === 1.4} on:click={() => scale = 1.4} title="Large">A</button>
+    </div>
   </nav>
 
   <main class="tab-content">
@@ -56,14 +63,11 @@
     flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 13px;
-
-    /* UI scale — change both numbers together (height = 100vh / zoom) */
-    zoom: 1.2;
-    height: calc(100vh / 1.2);
   }
 
   .tab-bar {
     display: flex;
+    align-items: center;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -84,6 +88,34 @@
 
   .tab-btn:hover       { color: var(--text-primary); }
   .tab-btn.active      { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .size-btns {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 10px;
+    -webkit-app-region: no-drag;
+  }
+
+  .size-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: color 0.15s;
+  }
+  .size-btn:hover  { color: var(--text-primary); }
+  .size-btn.active { color: var(--accent); }
+
+  .size-s { font-size: 10px; }
+  .size-m { font-size: 13px; }
+  .size-l { font-size: 17px; }
 
   .tab-content {
     flex: 1;
