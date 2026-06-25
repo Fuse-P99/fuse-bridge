@@ -33,7 +33,7 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
-  font-size: 18px;
+  font-size: 32px;
 }
 
 #app {
