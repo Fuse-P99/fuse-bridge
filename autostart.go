@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"golang.org/x/sys/windows/registry"
@@ -11,21 +9,10 @@ import (
 
 const autoStartValueName = "FuseBridge"
 
-func startupShortcutPath() string {
-	return filepath.Join(os.Getenv("APPDATA"),
-		"Microsoft", "Windows", "Start Menu", "Programs", "Startup", "FuseBridge.lnk")
-}
+const runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
 
 func isAutoStartEnabled() bool {
-	_, err := os.Stat(startupShortcutPath())
-	return err == nil
-}
-
-// hasLegacyRegistryAutoStart returns true if the old registry-based entry
-// still exists, indicating a migration to the startup folder is needed.
-func hasLegacyRegistryAutoStart() bool {
-	k, err := registry.OpenKey(registry.CURRENT_USER,
-		`Software\Microsoft\Windows\CurrentVersion\Run`, registry.QUERY_VALUE)
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKey, registry.QUERY_VALUE)
 	if err != nil {
 		return false
 	}
@@ -35,18 +22,19 @@ func hasLegacyRegistryAutoStart() bool {
 }
 
 func setAutoStart(enable bool) error {
-	// Remove any legacy registry Run entry.
-	if k, err := registry.OpenKey(registry.CURRENT_USER,
-		`Software\Microsoft\Windows\CurrentVersion\Run`, registry.SET_VALUE); err == nil {
-		k.DeleteValue(autoStartValueName)
-		k.Close()
-	}
+	// Remove any startup-folder shortcut left by older builds.
+	lnk := filepath.Join(os.Getenv("APPDATA"),
+		"Microsoft", "Windows", "Start Menu", "Programs", "Startup", "FuseBridge.lnk")
+	os.Remove(lnk)
 
-	shortcut := startupShortcutPath()
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKey, registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+
 	if !enable {
-		if err := os.Remove(shortcut); err != nil && !os.IsNotExist(err) {
-			return err
-		}
+		k.DeleteValue(autoStartValueName) // ignore "not found"
 		return nil
 	}
 
@@ -54,12 +42,5 @@ func setAutoStart(enable bool) error {
 	if err != nil {
 		return err
 	}
-	// Use PowerShell to create a proper .lnk shortcut in the Startup folder.
-	// The Startup folder runs after Explorer is fully loaded, making it reliable
-	// for tray apps (unlike the Run registry key, which fires before the shell is ready).
-	ps := fmt.Sprintf(
-		`$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%s');$s.TargetPath='%s';$s.WorkingDirectory='%s';$s.Save()`,
-		shortcut, exe, filepath.Dir(exe),
-	)
-	return exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", ps).Run()
+	return k.SetStringValue(autoStartValueName, exe)
 }

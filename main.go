@@ -19,9 +19,8 @@ func main() {
 	wailsApp = NewApp()
 	go startWails()
 
-	// On first run, or when migrating from the old registry-based approach,
-	// enable auto-start and record that we've done it.
-	if !currentSettings.StartupConfigured || hasLegacyRegistryAutoStart() {
+	// On first run, enable auto-start and record that we've done so.
+	if !currentSettings.StartupConfigured {
 		setAutoStart(true)
 		currentSettings.StartupConfigured = true
 		SaveSettings(currentSettings)
