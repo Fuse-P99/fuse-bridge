@@ -1,9 +1,10 @@
-//go:build wailsbindings
+//go:build bindings
 
 package main
 
-// In Wails binding-generation mode, main() must not block. wails.Run() with
-// the wailsbindings tag prints type info and calls os.Exit(0) immediately.
+// In Wails binding-generation mode (compiled with -tags bindings), main() must
+// not block. wails.Run() with the bindings tag generates TypeScript bindings
+// and returns immediately; then main() exits cleanly with code 0.
 func main() {
 	wailsApp = NewApp()
 	startWails()
