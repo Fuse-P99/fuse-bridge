@@ -8,7 +8,7 @@ export function GetAutoStart():Promise<boolean>;
 
 export function GetCharContent(arg1:string):Promise<string>;
 
-export function GetCharNames(arg1:boolean,arg2:boolean):Promise<Array<string>>;
+export function GetCharNames(arg1:string,arg2:boolean,arg3:boolean):Promise<Array<string>>;
 
 export function GetClients():Promise<Array<main.wailsClientEntry>>;
 

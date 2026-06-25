@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -158,12 +159,11 @@ func (a *App) BrowseEQDirectory() string {
 
 // --- Characters ---
 
-func (a *App) GetCharNames(excludeBots, excludeFiltered bool) []string {
+func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []string {
 	eqDir := GetSettings().EQDirectory
 	allNames := getAllCharNames(eqDir)
-	if !excludeBots && !excludeFiltered {
-		return allNames
-	}
+	lowerQ := strings.ToLower(strings.TrimSpace(query))
+
 	var out []string
 	for _, n := range allNames {
 		if excludeBots && IsBotToon(n) {
@@ -172,7 +172,18 @@ func (a *App) GetCharNames(excludeBots, excludeFiltered bool) []string {
 		if excludeFiltered && IsFilteredToon(n) {
 			continue
 		}
-		out = append(out, n)
+		if lowerQ == "" {
+			out = append(out, n)
+			continue
+		}
+		// Name match is fast; content match is slower but thorough.
+		if strings.Contains(strings.ToLower(n), lowerQ) {
+			out = append(out, n)
+			continue
+		}
+		if strings.Contains(strings.ToLower(buildCharContent(n, eqDir)), lowerQ) {
+			out = append(out, n)
+		}
 	}
 	return out
 }

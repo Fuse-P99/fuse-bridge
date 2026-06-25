@@ -14,8 +14,8 @@ export function GetCharContent(arg1) {
   return window['go']['main']['App']['GetCharContent'](arg1);
 }
 
-export function GetCharNames(arg1, arg2) {
-  return window['go']['main']['App']['GetCharNames'](arg1, arg2);
+export function GetCharNames(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetCharNames'](arg1, arg2, arg3);
 }
 
 export function GetClients() {

@@ -21,9 +21,12 @@
 
   // ── data loading ──────────────────────────────────────────────────────────
 
-  async function loadChars() {
-    chars = await GetCharNames(excludeBots, excludeFiltered) || []
-    if (selected && !chars.includes(selected)) {
+  // keepSelection: true when the user changed exclude filters (makes sense to
+  // deselect a character that's now hidden), false when they're mid-search
+  // (jarring to lose the right pane while typing).
+  async function loadChars(keepSelection = false) {
+    chars = await GetCharNames(query, excludeBots, excludeFiltered) || []
+    if (!keepSelection && selected && !chars.includes(selected)) {
       selected    = ''
       rawContent  = ''
       highlighted = ''
@@ -84,10 +87,11 @@
     detailEl?.querySelector('mark.current')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }
 
-  function handleSearch(e) {
+  async function handleSearch(e) {
     query    = e.target.value
     matchIdx = 0
-    rebuildHighlight()
+    await loadChars(false)   // re-filter the character list; keep current selection
+    rebuildHighlight()       // highlight matches in the right pane
     if (matchOffsets.length) scrollToCurrent()
   }
 
@@ -124,12 +128,12 @@
   // ── lifecycle ─────────────────────────────────────────────────────────────
 
   onMount(async () => {
-    await loadChars()
+    await loadChars(true)
     window.addEventListener('click', closeCtx)
     return () => window.removeEventListener('click', closeCtx)
   })
 
-  function onExcludeChange() { loadChars() }
+  function onExcludeChange() { loadChars(true) }
 </script>
 
 <svelte:window on:keydown={e => e.key === 'Escape' && closeCtx()} />
