@@ -161,10 +161,55 @@ func (a *App) IsBotToon(name string) bool { return IsBotToon(name) }
 
 // --- Zones ---
 
-func (a *App) GetZones() ([]zoneData, error) { return fetchZoneSnoop() }
+// wailsZoneData mirrors zoneData with LastSeen as Unix milliseconds so the
+// Wails binding generator (which can't handle time.Time) accepts the type.
+type wailsZoneData struct {
+	Name       string     `json:"name"`
+	LastSeen   int64      `json:"last_seen"`
+	Characters []zoneChar `json:"characters"`
+}
+
+func (a *App) GetZones() ([]wailsZoneData, error) {
+	zones, err := fetchZoneSnoop()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]wailsZoneData, len(zones))
+	for i, z := range zones {
+		out[i] = wailsZoneData{
+			Name:       z.Name,
+			LastSeen:   z.LastSeen.UnixMilli(),
+			Characters: z.Characters,
+		}
+	}
+	return out, nil
+}
 
 // --- Clients (admin) ---
 
+// wailsClientEntry mirrors adminClientEntry with LastSeen as Unix milliseconds.
+type wailsClientEntry struct {
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+	LastSeen  int64  `json:"last_seen"`
+	Connected bool   `json:"connected"`
+}
+
 func (a *App) IsAdminMode() bool { return GetSettings().AdminMode }
 
-func (a *App) GetClients() ([]adminClientEntry, error) { return fetchClients() }
+func (a *App) GetClients() ([]wailsClientEntry, error) {
+	clients, err := fetchClients()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]wailsClientEntry, len(clients))
+	for i, c := range clients {
+		out[i] = wailsClientEntry{
+			Name:      c.Name,
+			Version:   c.Version,
+			LastSeen:  c.LastSeen.UnixMilli(),
+			Connected: c.Connected,
+		}
+	}
+	return out, nil
+}

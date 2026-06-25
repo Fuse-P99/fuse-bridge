@@ -10,13 +10,13 @@ export function GetCharContent(arg1:string):Promise<string>;
 
 export function GetCharNames(arg1:boolean,arg2:boolean):Promise<Array<string>>;
 
-export function GetClients():Promise<Array<main.adminClientEntry>>;
+export function GetClients():Promise<Array<main.wailsClientEntry>>;
 
 export function GetSettings():Promise<main.Settings>;
 
 export function GetStatus():Promise<main.StatusSnapshot>;
 
-export function GetZones():Promise<Array<main.zoneData>>;
+export function GetZones():Promise<Array<main.wailsZoneData>>;
 
 export function IsAdminMode():Promise<boolean>;
 
