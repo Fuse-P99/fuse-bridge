@@ -3,6 +3,8 @@ export namespace main {
 	export class CharEntry {
 	    name: string;
 	    match_count: number;
+	    is_bot: boolean;
+	    is_filtered: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new CharEntry(source);
@@ -12,6 +14,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.match_count = source["match_count"];
+	        this.is_bot = source["is_bot"];
+	        this.is_filtered = source["is_filtered"];
 	    }
 	}
 	export class InventoryItem {

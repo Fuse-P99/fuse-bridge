@@ -167,6 +167,8 @@ func (a *App) BrowseEQDirectory() string {
 type CharEntry struct {
 	Name       string `json:"name"`
 	MatchCount int    `json:"match_count"`
+	IsBot      bool   `json:"is_bot"`
+	IsFiltered bool   `json:"is_filtered"`
 }
 
 func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []CharEntry {
@@ -176,20 +178,22 @@ func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []Ch
 
 	var out []CharEntry
 	for _, n := range allNames {
-		if excludeBots && IsBotToon(n) {
+		isBot := IsBotToon(n)
+		isFiltered := IsFilteredToon(n)
+		if excludeBots && isBot {
 			continue
 		}
-		if excludeFiltered && IsFilteredToon(n) {
+		if excludeFiltered && isFiltered {
 			continue
 		}
 		if lowerQ == "" {
-			out = append(out, CharEntry{Name: n})
+			out = append(out, CharEntry{Name: n, IsBot: isBot, IsFiltered: isFiltered})
 			continue
 		}
 		content := buildCharContent(n, eqDir)
 		count := len(allMatches(n, lowerQ)) + len(allMatches(content, lowerQ))
 		if count > 0 {
-			out = append(out, CharEntry{Name: n, MatchCount: count})
+			out = append(out, CharEntry{Name: n, MatchCount: count, IsBot: isBot, IsFiltered: isFiltered})
 		}
 	}
 	return out

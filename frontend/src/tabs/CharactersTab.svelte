@@ -283,11 +283,11 @@
     <div class="filter-row">
       <label class="chk">
         <input type="checkbox" bind:checked={excludeBots}     on:change={onExcludeChange} />
-        Exclude Bots
+        <span class="dot dot-bot"></span>Exclude Bots
       </label>
       <label class="chk">
         <input type="checkbox" bind:checked={excludeFiltered} on:change={onExcludeChange} />
-        Exclude Filtered
+        <span class="dot dot-filtered"></span>Exclude Filtered
       </label>
     </div>
   </div>
@@ -305,7 +305,7 @@
           on:keydown={e => e.key === 'Enter' && selectChar(entry.name)}
           on:contextmenu={e => onRightClick(e, entry.name)}
         >
-          {entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}
+          {#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}
         </div>
       {:else}
         <div class="empty">No characters</div>
@@ -508,6 +508,14 @@
   .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); }
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
+
+  /* status dots — bot (blue) and filtered (yellow) */
+  .dot {
+    display:inline-block; width:7px; height:7px;
+    border-radius:50%; flex-shrink:0; vertical-align:middle;
+  }
+  .dot-bot      { background:#4a9eff; margin-right:5px; }
+  .dot-filtered { background:#c8a951; margin-right:5px; }
 
   /* detail pane */
   .detail-pane { display:flex; flex-direction:column; flex:1; overflow:hidden; }
