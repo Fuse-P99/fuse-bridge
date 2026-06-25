@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -26,11 +28,25 @@ type App struct {
 	ctx context.Context
 }
 
+var logPath = filepath.Join(os.TempDir(), "FuseBridge.log")
+
+func writeLog(msg string) {
+	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("15:04:05.000"), msg)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(line)
+}
+
 func NewApp() *App { return &App{} }
 
 func (a *App) startup(ctx context.Context) {
+	writeLog("startup() called")
 	a.ctx = ctx
 	close(wailsReady)
+	writeLog("wailsReady closed")
 }
 
 // Show brings the Wails window to the foreground. Safe to call from any goroutine.
@@ -47,6 +63,7 @@ func (a *App) Show() {
 }
 
 func startWails() {
+	writeLog("startWails() called")
 	err := wails.Run(&options.App{
 		Title:     "Fuse Bridge",
 		Width:     900,
@@ -70,10 +87,11 @@ func startWails() {
 		},
 	})
 	if err != nil {
-		logPath := filepath.Join(os.TempDir(), "FuseBridge.log")
-		os.WriteFile(logPath, []byte("Wails error: "+err.Error()+"\n"), 0644)
+		writeLog("wails.Run error: " + err.Error())
 		addStatus("UI failed to start: %v", err)
 		close(wailsFailed)
+	} else {
+		writeLog("wails.Run returned nil (normal shutdown)")
 	}
 }
 

@@ -99,12 +99,16 @@ func main() {
 	// Wails failed to start within 15 seconds.
 	runTray(func() {
 		go func() {
+			writeLog("Settings clicked, waiting for wailsReady...")
 			select {
 			case <-wailsReady:
+				writeLog("wailsReady received, calling Show()")
 				wailsApp.Show()
 			case <-wailsFailed:
+				writeLog("wailsFailed received, falling back to walk dialog")
 				trayOwner.Synchronize(openSettingsWindow)
-			case <-time.After(15 * time.Second):
+			case <-time.After(5 * time.Second):
+				writeLog("timeout waiting for Wails, falling back to walk dialog")
 				trayOwner.Synchronize(openSettingsWindow)
 			}
 		}()
