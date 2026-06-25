@@ -381,7 +381,7 @@
 
             {:else if !charClass}
               <div class="empty">
-                Class unknown — log in and run <code>/who</code> to set the class.
+                Class unknown or missing spellbook file — log in and run <code>/who</code> to set the class and run <code>/outputfile spellbook</code>.
               </div>
 
             {:else if spellsLoading}

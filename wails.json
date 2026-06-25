@@ -8,7 +8,14 @@
   "frontend:dev:serverUrl": "auto",
   "frontend:dir": "frontend",
   "author": {
-    "name": "Fuse",
-    "email": ""
+    "name": "Dustin Yonak",
+    "email": "dyonak@gmail.com"
+  },
+  "info": {
+    "companyName": "Fuse Guild",
+    "productName": "Fuse Bridge",
+    "productVersion": "1.3.71",
+    "comments": "Built using Go and Wails, a Fuse guild chat bridge client for the classic Everquest server project 1999.",
+    "copyright": "June 2026"
   }
 }
