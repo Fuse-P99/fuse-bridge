@@ -68,7 +68,7 @@
           <span class="dim">Fuse Bridge v{status.version}</span>
         </div>
       </div>
-      <img class="app-icon" src="/appicon.png" alt="Fuse Bridge" />
+      <img class="app-icon" src="/FuseIcon2.ico" alt="Fuse Bridge" />
     </div>
   </div>
 
