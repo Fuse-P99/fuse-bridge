@@ -43,27 +43,32 @@
 <div class="general">
   <!-- Status panel -->
   <div class="panel">
-    <div class="status-row">
-      <span class="label">EverQuest</span>
-      <span class="dot" class:green={status.eq_running} class:red={!status.eq_running}></span>
-      <span class="badge-text" class:green={status.eq_running} class:red={!status.eq_running}>
-        {status.eq_running ? 'Running' : 'Not detected'}
-      </span>
-    </div>
-    <div class="status-row">
-      <span class="label">Log File</span>
-      <span class="mono dim">{baseName(status.log_file)}</span>
-    </div>
-    <div class="status-row">
-      <span class="label">Server</span>
-      <span class="dot" class:green={status.connected} class:red={!status.connected}></span>
-      <span class="badge-text" class:green={status.connected} class:red={!status.connected}>
-        {status.connected ? 'Connected' : 'Not connected'}
-      </span>
-    </div>
-    <div class="status-row">
-      <span class="label">Version</span>
-      <span class="dim">Fuse Bridge v{status.version}</span>
+    <div class="panel-body">
+      <div class="status-rows">
+        <div class="status-row">
+          <span class="label">EverQuest</span>
+          <span class="dot" class:green={status.eq_running} class:red={!status.eq_running}></span>
+          <span class="badge-text" class:green={status.eq_running} class:red={!status.eq_running}>
+            {status.eq_running ? 'Running' : 'Not detected'}
+          </span>
+        </div>
+        <div class="status-row">
+          <span class="label">Log File</span>
+          <span class="mono dim">{baseName(status.log_file)}</span>
+        </div>
+        <div class="status-row">
+          <span class="label">Server</span>
+          <span class="dot" class:green={status.connected} class:red={!status.connected}></span>
+          <span class="badge-text" class:green={status.connected} class:red={!status.connected}>
+            {status.connected ? 'Connected' : 'Not connected'}
+          </span>
+        </div>
+        <div class="status-row">
+          <span class="label">Version</span>
+          <span class="dim">Fuse Bridge v{status.version}</span>
+        </div>
+      </div>
+      <img class="app-icon" src="/appicon.png" alt="Fuse Bridge" />
     </div>
   </div>
 
@@ -110,9 +115,26 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 10px 14px;
+  }
+
+  .panel-body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-rows {
     display: flex;
     flex-direction: column;
     gap: 7px;
+    flex: 1;
+  }
+
+  .app-icon {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    opacity: 0.9;
   }
 
   .status-row {
