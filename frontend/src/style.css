@@ -1,25 +1,30 @@
 :root {
-  --bg-primary:    #0f1117;
-  --bg-secondary:  #141720;
-  --bg-panel:      #1a1d2e;
-  --bg-input:      #0d1018;
-  --border:        #252836;
-  --border-hover:  #3a3d52;
-  --text-primary:  #e0e2ea;
-  --text-secondary:#7880a0;
-  --text-muted:    #4d5270;
-  --accent:        #c8a951;
-  --accent-dim:    #8a6f30;
-  --success:       #4caf50;
-  --error:         #ef5350;
-  --mark-bg:       rgba(200, 169, 81, 0.30);
-  --mark-color:    #ffe08a;
-  --font-mono:     'Courier New', Consolas, monospace;
+  --bg-primary: #0f1117;
+  --bg-secondary: #141720;
+  --bg-panel: #1a1d2e;
+  --bg-input: #0d1018;
+  --border: #252836;
+  --border-hover: #3a3d52;
+  --text-primary: #e0e2ea;
+  --text-secondary: #7880a0;
+  --text-muted: #4d5270;
+  --accent: #c8a951;
+  --accent-dim: #8a6f30;
+  --success: #4caf50;
+  --error: #ef5350;
+  --mark-bg: rgba(200, 169, 81, 0.3);
+  --mark-color: #ffe08a;
+  --font-mono: "Courier New", Consolas, monospace;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -28,14 +33,27 @@ html, body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
+  font-size: 18px;
 }
 
-#app { height: 100%; }
+#app {
+  height: 100%;
+}
 
-::-webkit-scrollbar            { width: 6px; height: 6px; }
-::-webkit-scrollbar-track      { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb      { background: var(--border-hover); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover{ background: var(--text-muted); }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
 
 mark {
   background: var(--mark-bg);
