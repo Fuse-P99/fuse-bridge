@@ -283,11 +283,11 @@
     <div class="filter-row">
       <label class="chk">
         <input type="checkbox" bind:checked={excludeBots}     on:change={onExcludeChange} />
-        <span class="dot dot-bot"></span>Exclude Bots
+        Exclude Bots<span class="dot dot-bot"></span>
       </label>
       <label class="chk">
         <input type="checkbox" bind:checked={excludeFiltered} on:change={onExcludeChange} />
-        <span class="dot dot-filtered"></span>Exclude Filtered
+        Exclude Filtered<span class="dot dot-filtered"></span>
       </label>
     </div>
   </div>
@@ -305,7 +305,7 @@
           on:keydown={e => e.key === 'Enter' && selectChar(entry.name)}
           on:contextmenu={e => onRightClick(e, entry.name)}
         >
-          {#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}
+          {entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}
         </div>
       {:else}
         <div class="empty">No characters</div>
@@ -514,8 +514,8 @@
     display:inline-block; width:7px; height:7px;
     border-radius:50%; flex-shrink:0; vertical-align:middle;
   }
-  .dot-bot      { background:#4a9eff; margin-right:5px; }
-  .dot-filtered { background:#c8a951; margin-right:5px; }
+  .dot-bot      { background:#4a9eff; margin-left:5px; }
+  .dot-filtered { background:#c8a951; margin-left:5px; }
 
   /* detail pane */
   .detail-pane { display:flex; flex-direction:column; flex:1; overflow:hidden; }
