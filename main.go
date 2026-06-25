@@ -21,6 +21,9 @@ func main() {
 	LoadRaidMobs()
 	go fetchBotToons()
 
+	wailsApp = NewApp()
+	go startWails()
+
 	// On first run, or when migrating from the old registry-based approach,
 	// enable auto-start and record that we've done it.
 	if !currentSettings.StartupConfigured || hasLegacyRegistryAutoStart() {
@@ -97,8 +100,14 @@ func main() {
 		}
 	}()
 
-	// Run tray on the main goroutine (walk requires this); blocks until Quit
-	runTray(openSettingsWindow)
+	// Run tray on the main goroutine (walk requires this); blocks until Quit.
+	// Settings click shows the Wails window (waits for Wails startup if needed).
+	runTray(func() {
+		go func() {
+			<-wailsReady
+			wailsApp.Show()
+		}()
+	})
 
 	close(done)
 }

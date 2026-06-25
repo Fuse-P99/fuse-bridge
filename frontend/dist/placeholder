@@ -1,0 +1,2 @@
+This file ensures the dist directory is non-empty so the Go embed compiles.
+It is replaced entirely when `wails build` runs npm build.
