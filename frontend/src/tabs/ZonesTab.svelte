@@ -122,7 +122,7 @@
 
   .detail { flex:1; overflow:auto; padding:10px 14px; }
   .pre {
-    font-family:var(--font-mono); font-size:11px; color:var(--text-secondary);
+    font-size:13px; color:var(--text-secondary);
     line-height:1.6; margin:0; white-space:pre-wrap; user-select:text;
   }
 
