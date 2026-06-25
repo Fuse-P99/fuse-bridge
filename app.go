@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,8 +17,9 @@ import (
 var assets embed.FS
 
 var (
-	wailsApp   *App
-	wailsReady = make(chan struct{})
+	wailsApp      *App
+	wailsReady    = make(chan struct{})
+	wailsFailed   = make(chan struct{}) // closed if wails.Run returns an error
 )
 
 type App struct {
@@ -38,6 +38,7 @@ func (a *App) Show() {
 	if a.ctx == nil {
 		return
 	}
+	runtime.WindowCenter(a.ctx)
 	runtime.WindowShow(a.ctx)
 	// Brief always-on-top flicker ensures the window comes to front even if
 	// another app is currently focused.
@@ -69,7 +70,10 @@ func startWails() {
 		},
 	})
 	if err != nil {
-		fmt.Println("Wails error:", err)
+		logPath := filepath.Join(os.TempDir(), "FuseBridge.log")
+		os.WriteFile(logPath, []byte("Wails error: "+err.Error()+"\n"), 0644)
+		addStatus("UI failed to start: %v", err)
+		close(wailsFailed)
 	}
 }
 

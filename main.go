@@ -95,11 +95,18 @@ func main() {
 	}()
 
 	// Run tray on the main goroutine (walk requires this); blocks until Quit.
-	// Settings click shows the Wails window (waits for Wails startup if needed).
+	// Settings click shows the Wails window; falls back to the walk dialog if
+	// Wails failed to start within 15 seconds.
 	runTray(func() {
 		go func() {
-			<-wailsReady
-			wailsApp.Show()
+			select {
+			case <-wailsReady:
+				wailsApp.Show()
+			case <-wailsFailed:
+				trayOwner.Synchronize(openSettingsWindow)
+			case <-time.After(15 * time.Second):
+				trayOwner.Synchronize(openSettingsWindow)
+			}
 		}()
 	})
 
