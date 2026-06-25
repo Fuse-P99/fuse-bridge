@@ -10,8 +10,8 @@ export function GetAutoStart() {
   return window['go']['main']['App']['GetAutoStart']();
 }
 
-export function GetCharClass(arg1) {
-  return window['go']['main']['App']['GetCharClass'](arg1);
+export function GetCharClassWithInference(arg1, arg2) {
+  return window['go']['main']['App']['GetCharClassWithInference'](arg1, arg2);
 }
 
 export function GetCharContent(arg1) {

@@ -6,7 +6,7 @@ export function BrowseEQDirectory():Promise<string>;
 
 export function GetAutoStart():Promise<boolean>;
 
-export function GetCharClass(arg1:string):Promise<string>;
+export function GetCharClassWithInference(arg1:string,arg2:Array<string>):Promise<string>;
 
 export function GetCharContent(arg1:string):Promise<string>;
 

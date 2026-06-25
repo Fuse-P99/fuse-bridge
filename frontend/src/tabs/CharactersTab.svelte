@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte'
   import {
     GetCharNames, GetCharContent, GetCharInventory,
-    GetCharSpellbook, GetCharClass, GetSpellsForClass,
+    GetCharSpellbook, GetCharClassWithInference, GetSpellsForClass,
     GetSettings, SaveSettings,
     IsFilteredToon, ToggleFilteredToon
   } from '../../wailsjs/go/main/App'
@@ -21,13 +21,19 @@
   let detailTab      = 'all'   // 'all' | 'inventory' | 'spells'
   let inventoryItems = []      // InventoryItem[]
 
-  // Spells tab state
-  let spellList     = []   // SpellEntry[] — full class spell list from server
-  let spellbook     = null // string[] | null — null means file not found
-  let charClass     = ''   // canonical class name from server
-  let spellsLoaded  = ''   // which character's spell data is cached
+  // Class + spellbook — loaded eagerly in selectChar
+  let charClass        = ''   // canonical class name; '' = unknown
+  let charClassLoading = false
+  let spellbook        = null // string[] from local file; null = file not found
+
+  // Spell list — loaded lazily when Spells tab is first opened
+  let spellList     = []
+  let spellsLoaded  = '' // which character's spell list is cached
   let spellsLoading = false
   let spellsError   = ''
+
+  // Classes with no player-castable spells — hide the Spells tab for these.
+  const nonCasterClasses = new Set(['Monk', 'Rogue', 'Warrior'])
 
   // Context menu
   let ctx = { visible: false, x: 0, y: 0, name: '', filtered: false }
@@ -37,48 +43,62 @@
   async function loadChars(keepSelection = false) {
     chars = await GetCharNames(query, excludeBots, excludeFiltered) || []
     if (!keepSelection && selected && !chars.some(e => e.name === selected)) {
-      selected       = ''
-      rawContent     = ''
-      highlighted    = ''
+      selected = ''
+      rawContent = ''
+      highlighted = ''
       inventoryItems = []
-      clearSpells()
+      clearState()
     }
   }
 
+  function clearState() {
+    charClass        = ''
+    charClassLoading = false
+    spellbook        = null
+    spellList        = []
+    spellsLoaded     = ''
+    spellsError      = ''
+  }
+
   async function selectChar(name) {
-    selected       = name
-    rawContent     = await GetCharContent(name)
-    inventoryItems = await GetCharInventory(name) || []
+    selected = name
+    clearState()
+
+    charClassLoading = true
+
+    // Load content, inventory, and spellbook all in parallel (all local/fast).
+    const [content, inventory, sb] = await Promise.all([
+      GetCharContent(name),
+      GetCharInventory(name),
+      GetCharSpellbook(name)
+    ])
+
+    rawContent     = content
+    inventoryItems = inventory || []
+    spellbook      = sb   // null = file not found; [] = file present but empty
     rebuildHighlight()
-    clearSpells() // invalidate spell cache for the new character
+
+    // Now resolve class: server lookup first, then infer from spellbook spells.
+    charClass        = await GetCharClassWithInference(name, sb || []) || ''
+    charClassLoading = false
   }
 
-  function clearSpells() {
-    spellsLoaded  = ''
-    spellList     = []
-    spellbook     = null
-    charClass     = ''
-    spellsError   = ''
+  // Show the Spells tab unless class is definitively a non-caster.
+  $: showSpellsTab = !charClass || !nonCasterClasses.has(charClass)
+
+  async function openSpellsTab() {
+    detailTab = 'spells'
+    await loadSpellList()
   }
 
-  async function loadSpellData() {
+  async function loadSpellList() {
     if (spellsLoaded === selected) return
+    if (!charClass) return  // nothing to load yet; tab shows "class unknown"
     spellsLoading = true
     spellsError   = ''
     spellList     = []
-    spellbook     = null
-    charClass     = ''
     try {
-      const [cls, sb] = await Promise.all([
-        GetCharClass(selected),
-        GetCharSpellbook(selected)
-      ])
-      charClass = cls || ''
-      spellbook = sb  // null = file not found; [] = file found but empty
-
-      if (charClass) {
-        spellList = await GetSpellsForClass(charClass) || []
-      }
+      spellList = await GetSpellsForClass(charClass) || []
     } catch (e) {
       spellsError = String(e)
     } finally {
@@ -87,13 +107,18 @@
     }
   }
 
+  // Reload the spell list when class resolves and the Spells tab is active.
+  $: if (charClass && detailTab === 'spells' && spellsLoaded !== selected) {
+    loadSpellList()
+  }
+
   // ── reactive spell derivations ────────────────────────────────────────────
 
-  // Set of known spell names from the spellbook file (lowercase).
+  // Set of spell names from the local spellbook file (lowercase for comparison).
   // null when no spellbook file exists — disables missing highlighting.
   $: spellbookSet = spellbook ? new Set(spellbook.map(n => n.toLowerCase())) : null
 
-  // Spells grouped by level, highest level first, alpha within each level.
+  // Spell list grouped by level, highest level first, alpha within each level.
   $: levelGroups = (() => {
     const groups = new Map()
     for (const s of spellList) {
@@ -299,14 +324,18 @@
             Inventory{#if inventoryItems.length > 0}<span class="tab-count">({inventoryItems.length})</span>{/if}
           </button>
 
-          <button class="sub-tab" class:active={detailTab === 'spells'}
-            on:click={async () => { detailTab = 'spells'; await loadSpellData() }}>
-            Spells{#if spellsLoaded === selected && spellList.length > 0}
-              <span class="tab-count" class:tab-missing={missingCount > 0}>
-                {#if missingCount > 0}({missingCount} missing){:else}(✓){/if}
-              </span>
-            {/if}
-          </button>
+          {#if showSpellsTab}
+            <button class="sub-tab" class:active={detailTab === 'spells'}
+              on:click={openSpellsTab}>
+              Spells{#if charClassLoading}
+                <span class="tab-loading">…</span>
+              {:else if spellsLoaded === selected && spellList.length > 0}
+                <span class="tab-count" class:tab-missing={missingCount > 0}>
+                  {#if missingCount > 0}({missingCount} missing){:else}(✓){/if}
+                </span>
+              {/if}
+            </button>
+          {/if}
         </div>
 
         <!-- All tab -->
@@ -347,16 +376,19 @@
         <!-- Spells tab -->
         {:else if detailTab === 'spells'}
           <div class="detail spells-pane">
-            {#if spellsLoading}
+            {#if charClassLoading}
+              <div class="empty">Identifying class…</div>
+
+            {:else if !charClass}
+              <div class="empty">
+                Class unknown — log in and run <code>/who</code> to set the class.
+              </div>
+
+            {:else if spellsLoading}
               <div class="empty">Loading spells…</div>
 
             {:else if spellsError}
               <div class="empty">{spellsError}</div>
-
-            {:else if !charClass}
-              <div class="empty">
-                Class unknown — zone in or run <code>/who</code> near this character so the server can identify their class.
-              </div>
 
             {:else if spellList.length === 0}
               <div class="empty">No spells found for {charClass}</div>
@@ -497,6 +529,7 @@
   .sub-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
   .tab-count { color:var(--text-muted); font-size:11px; margin-left:4px; }
   .tab-missing { color:#e05c5c; }
+  .tab-loading { color:var(--text-muted); font-size:11px; margin-left:3px; }
 
   .detail { flex:1; overflow:auto; padding:10px 14px; }
   .pre {
@@ -506,9 +539,7 @@
   }
 
   /* inventory table */
-  .inv-table {
-    width:100%; border-collapse:collapse; font-size:12px;
-  }
+  .inv-table { width:100%; border-collapse:collapse; font-size:12px; }
   .inv-table thead th {
     text-align:left; color:var(--text-muted); font-weight:600;
     font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
@@ -520,16 +551,11 @@
   .inv-table td { padding:5px 10px 5px 0; vertical-align:middle; }
 
   .col-slot  { width:110px; }
-  .col-item  { }
   .col-count { width:36px; text-align:right; padding-right:4px; }
-
   .slot-label { color:var(--text-muted); font-size:11px; }
 
-  .wiki-link {
-    color:var(--text-primary); text-decoration:none;
-    transition:color 0.12s;
-  }
-  .wiki-link:hover { color:var(--accent); text-decoration:underline; }
+  .wiki-link { color:var(--text-primary); text-decoration:none; transition:color 0.12s; }
+  a.wiki-link:hover { color:var(--accent); text-decoration:underline; }
 
   .stack {
     background:rgba(200,169,81,0.15); color:var(--accent);
@@ -552,7 +578,6 @@
     font-size:12px; color:var(--text-muted); margin-bottom:4px;
   }
   .spell-class { color:var(--accent); font-weight:600; }
-  .spell-count-info { color:var(--text-muted); }
   .no-sb { color:var(--text-muted); font-style:italic; }
   .no-sb code {
     background:var(--bg-panel); border:1px solid var(--border);
@@ -582,18 +607,14 @@
 
   .spell-link {
     font-size:12px; color:var(--text-secondary);
-    text-decoration:none; flex:1;
-    transition:color 0.12s;
+    text-decoration:none; flex:1; transition:color 0.12s;
   }
   a.spell-link:hover { color:var(--accent); text-decoration:underline; }
 
   .spell-link-missing { color:#e05c5c !important; }
   a.spell-link-missing:hover { color:#f07070 !important; }
 
-  .spell-mana {
-    font-size:10px; color:var(--text-muted); flex-shrink:0;
-    white-space:nowrap;
-  }
+  .spell-mana { font-size:10px; color:var(--text-muted); flex-shrink:0; white-space:nowrap; }
 
   /* command footer */
   .cmd-footer {
@@ -610,10 +631,7 @@
     white-space:nowrap;
   }
   .cmd-btn:hover { border-color:var(--accent-dim); color:var(--accent); }
-  .copy-msg {
-    font-size:11px; color:var(--success);
-    animation: fade-in 0.15s ease;
-  }
+  .copy-msg { font-size:11px; color:var(--success); animation: fade-in 0.15s ease; }
   @keyframes fade-in { from { opacity:0 } to { opacity:1 } }
 
   /* context menu */

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -284,26 +285,44 @@ type SpellEntry struct {
 	WikiURL  string `json:"wiki_url"`
 }
 
-// GetCharClass fetches the best-known class for a character from the server.
-// Returns "" if unknown. No auth required — the endpoint is not sensitive.
-func (a *App) GetCharClass(name string) string {
+// GetCharClassWithInference determines a character's class using two steps:
+//  1. Server lookup — checks the guild roster and whotracker DB.
+//  2. Spellbook inference — if spellNames are provided and step 1 fails, the
+//     server finds which class most exclusively owns those spells.
+//
+// spellNames should be the output of GetCharSpellbook. Pass nil or empty to
+// skip inference. Returns "" if class cannot be determined.
+func (a *App) GetCharClassWithInference(name string, spellNames []string) string {
 	base := strings.TrimSuffix(serverURL, "/submit")
-	req, err := http.NewRequest(http.MethodGet,
-		base+"/charclass?name="+url.QueryEscape(name), nil)
+	client := &http.Client{Timeout: 8 * time.Second}
+
+	// Step 1: server roster + whotracker lookup.
+	if resp, err := client.Get(base + "/charclass?name=" + url.QueryEscape(name)); err == nil {
+		var result struct{ Class string `json:"class"` }
+		json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
+		if result.Class != "" {
+			return result.Class
+		}
+	}
+
+	// Step 2: infer from class-exclusive spells in the spellbook.
+	if len(spellNames) == 0 {
+		return ""
+	}
+	body, _ := json.Marshal(map[string][]string{"spells": spellNames})
+	req, err := http.NewRequest(http.MethodPost, base+"/inferclass", bytes.NewReader(body))
 	if err != nil {
 		return ""
 	}
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return ""
+	req.Header.Set("Content-Type", "application/json")
+	if resp, err := client.Do(req); err == nil {
+		var result struct{ Class string `json:"class"` }
+		json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
+		return result.Class
 	}
-	defer resp.Body.Close()
-	var result struct {
-		Class string `json:"class"`
-	}
-	json.NewDecoder(resp.Body).Decode(&result)
-	return result.Class
+	return ""
 }
 
 // GetSpellsForClass fetches all spells for a class from the server,
