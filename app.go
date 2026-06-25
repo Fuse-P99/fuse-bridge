@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -63,6 +64,11 @@ func (a *App) Show() {
 }
 
 func startWails() {
+	// Pin this goroutine to its OS thread for the lifetime of the Wails run.
+	// WebView2 uses COM STA, which is thread-affine. Without this, Go's scheduler
+	// can migrate the goroutine to a different OS thread mid-loop, breaking the
+	// COM apartment and causing RunMainLoop() to exit spuriously.
+	runtime.LockOSThread()
 	writeLog("startWails() called")
 	err := wails.Run(&options.App{
 		Title:     "Fuse Bridge",
