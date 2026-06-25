@@ -68,6 +68,26 @@ export namespace main {
 	        this.slain_messages = source["slain_messages"];
 	    }
 	}
+	export class SpellEntry {
+	    name: string;
+	    level: number;
+	    mana: number;
+	    cast_time: string;
+	    wiki_url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpellEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.level = source["level"];
+	        this.mana = source["mana"];
+	        this.cast_time = source["cast_time"];
+	        this.wiki_url = source["wiki_url"];
+	    }
+	}
 	export class StatusSnapshot {
 	    eq_running: boolean;
 	    log_file: string;

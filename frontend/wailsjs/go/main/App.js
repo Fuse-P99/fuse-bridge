@@ -10,6 +10,10 @@ export function GetAutoStart() {
   return window['go']['main']['App']['GetAutoStart']();
 }
 
+export function GetCharClass(arg1) {
+  return window['go']['main']['App']['GetCharClass'](arg1);
+}
+
 export function GetCharContent(arg1) {
   return window['go']['main']['App']['GetCharContent'](arg1);
 }
@@ -22,12 +26,20 @@ export function GetCharNames(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetCharNames'](arg1, arg2, arg3);
 }
 
+export function GetCharSpellbook(arg1) {
+  return window['go']['main']['App']['GetCharSpellbook'](arg1);
+}
+
 export function GetClients() {
   return window['go']['main']['App']['GetClients']();
 }
 
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
+}
+
+export function GetSpellsForClass(arg1) {
+  return window['go']['main']['App']['GetSpellsForClass'](arg1);
 }
 
 export function GetStatus() {

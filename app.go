@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -245,6 +248,89 @@ func (a *App) IsFilteredToon(name string) bool { return IsFilteredToon(name) }
 func (a *App) ToggleFilteredToon(name string) { ToggleFilteredToon(name) }
 
 func (a *App) IsBotToon(name string) bool { return IsBotToon(name) }
+
+// GetCharSpellbook reads CHARNAME-Spellbook.txt (written by /outputfile spellbook)
+// and returns the spell names it contains. Returns nil if the file doesn't exist.
+func (a *App) GetCharSpellbook(name string) []string {
+	eqDir := GetSettings().EQDirectory
+	if eqDir == "" {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(eqDir, name+"-Spellbook.txt"))
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
+	var names []string
+	for i, line := range lines {
+		if i == 0 {
+			continue // header row: Slot\tName\tID
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+			continue
+		}
+		names = append(names, strings.TrimSpace(parts[1]))
+	}
+	return names
+}
+
+// SpellEntry mirrors SpellResult from the server's /spells endpoint.
+type SpellEntry struct {
+	Name     string `json:"name"`
+	Level    int    `json:"level"`
+	Mana     int    `json:"mana"`
+	CastTime string `json:"cast_time"`
+	WikiURL  string `json:"wiki_url"`
+}
+
+// GetCharClass fetches the best-known class for a character from the server.
+// Returns "" if unknown. No auth required — the endpoint is not sensitive.
+func (a *App) GetCharClass(name string) string {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	req, err := http.NewRequest(http.MethodGet,
+		base+"/charclass?name="+url.QueryEscape(name), nil)
+	if err != nil {
+		return ""
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Class string `json:"class"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result.Class
+}
+
+// GetSpellsForClass fetches all spells for a class from the server,
+// ordered by level ascending (the UI reverses this for display).
+func (a *App) GetSpellsForClass(class string) []SpellEntry {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	req, err := http.NewRequest(http.MethodGet,
+		base+"/spells?class="+url.QueryEscape(class), nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return nil
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Spells []SpellEntry `json:"spells"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result.Spells
+}
 
 // --- Zones ---
 
