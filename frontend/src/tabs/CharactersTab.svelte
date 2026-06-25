@@ -1,17 +1,17 @@
 <script>
   import { onMount, tick } from 'svelte'
   import {
-    GetCharNames, GetCharContent,
+    GetCharNames, GetCharContent, GetSettings, SaveSettings,
     IsFilteredToon, ToggleFilteredToon
   } from '../../wailsjs/go/main/App'
 
-  let chars           = []
+  let chars           = []   // CharEntry[]
   let selected        = ''
   let rawContent      = ''
   let highlighted     = ''
   let query           = ''
-  let excludeBots     = true
-  let excludeFiltered = false
+  let excludeBots     = true  // overwritten from persisted settings on mount
+  let excludeFiltered = true  // overwritten from persisted settings on mount
   let matchOffsets    = []
   let matchIdx        = 0
   let detailEl
@@ -26,7 +26,7 @@
   // (jarring to lose the right pane while typing).
   async function loadChars(keepSelection = false) {
     chars = await GetCharNames(query, excludeBots, excludeFiltered) || []
-    if (!keepSelection && selected && !chars.includes(selected)) {
+    if (!keepSelection && selected && !chars.some(e => e.name === selected)) {
       selected    = ''
       rawContent  = ''
       highlighted = ''
@@ -128,12 +128,19 @@
   // ── lifecycle ─────────────────────────────────────────────────────────────
 
   onMount(async () => {
+    const s     = await GetSettings()
+    excludeBots     = s.exclude_bots     ?? true
+    excludeFiltered = s.exclude_filtered ?? true
     await loadChars(true)
     window.addEventListener('click', closeCtx)
     return () => window.removeEventListener('click', closeCtx)
   })
 
-  function onExcludeChange() { loadChars(true) }
+  async function onExcludeChange() {
+    const s = await GetSettings()
+    await SaveSettings({ ...s, exclude_bots: excludeBots, exclude_filtered: excludeFiltered })
+    loadChars(true)
+  }
 </script>
 
 <svelte:window on:keydown={e => e.key === 'Escape' && closeCtx()} />
@@ -171,16 +178,18 @@
   <!-- split pane -->
   <div class="split">
     <div class="list">
-      {#each chars as name}
+      {#each chars as entry}
         <div
           class="char-item"
-          class:sel={name === selected}
+          class:sel={entry.name === selected}
           role="button"
           tabindex="0"
-          on:click={() => selectChar(name)}
-          on:keydown={e => e.key === 'Enter' && selectChar(name)}
-          on:contextmenu={e => onRightClick(e, name)}
-        >{name}</div>
+          on:click={() => selectChar(entry.name)}
+          on:keydown={e => e.key === 'Enter' && selectChar(entry.name)}
+          on:contextmenu={e => onRightClick(e, entry.name)}
+        >
+          {entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}
+        </div>
       {:else}
         <div class="empty">No characters</div>
       {/each}
@@ -250,6 +259,7 @@
   }
   .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); }
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
+  .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
 
   .detail { flex:1; overflow:auto; padding:10px 14px; }
   .pre {

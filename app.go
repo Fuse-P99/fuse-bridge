@@ -159,12 +159,17 @@ func (a *App) BrowseEQDirectory() string {
 
 // --- Characters ---
 
-func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []string {
+type CharEntry struct {
+	Name       string `json:"name"`
+	MatchCount int    `json:"match_count"`
+}
+
+func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []CharEntry {
 	eqDir := GetSettings().EQDirectory
 	allNames := getAllCharNames(eqDir)
 	lowerQ := strings.ToLower(strings.TrimSpace(query))
 
-	var out []string
+	var out []CharEntry
 	for _, n := range allNames {
 		if excludeBots && IsBotToon(n) {
 			continue
@@ -173,16 +178,13 @@ func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []st
 			continue
 		}
 		if lowerQ == "" {
-			out = append(out, n)
+			out = append(out, CharEntry{Name: n})
 			continue
 		}
-		// Name match is fast; content match is slower but thorough.
-		if strings.Contains(strings.ToLower(n), lowerQ) {
-			out = append(out, n)
-			continue
-		}
-		if strings.Contains(strings.ToLower(buildCharContent(n, eqDir)), lowerQ) {
-			out = append(out, n)
+		content := buildCharContent(n, eqDir)
+		count := len(allMatches(n, lowerQ)) + len(allMatches(content, lowerQ))
+		if count > 0 {
+			out = append(out, CharEntry{Name: n, MatchCount: count})
 		}
 	}
 	return out

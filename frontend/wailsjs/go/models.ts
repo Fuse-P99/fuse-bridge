@@ -1,5 +1,19 @@
 export namespace main {
 	
+	export class CharEntry {
+	    name: string;
+	    match_count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CharEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.match_count = source["match_count"];
+	    }
+	}
 	export class Settings {
 	    guild_chat: boolean;
 	    guild_motd: boolean;
