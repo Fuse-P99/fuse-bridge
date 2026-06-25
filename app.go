@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -192,6 +193,51 @@ func (a *App) GetCharNames(query string, excludeBots, excludeFiltered bool) []Ch
 
 func (a *App) GetCharContent(name string) string {
 	return buildCharContent(name, GetSettings().EQDirectory)
+}
+
+type InventoryItem struct {
+	Location string `json:"location"`
+	Name     string `json:"name"`
+	Count    int    `json:"count"`
+}
+
+func (a *App) GetCharInventory(name string) []InventoryItem {
+	eqDir := GetSettings().EQDirectory
+	if eqDir == "" {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(eqDir, name+"-Inventory.txt"))
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
+	var items []InventoryItem
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || i == 0 { // skip header row
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+		itemName := parts[1]
+		if itemName == "" || itemName == "Empty" {
+			continue
+		}
+		count := 1
+		if len(parts) > 3 {
+			if n, err := strconv.Atoi(parts[3]); err == nil && n > 0 {
+				count = n
+			}
+		}
+		items = append(items, InventoryItem{
+			Location: parts[0],
+			Name:     itemName,
+			Count:    count,
+		})
+	}
+	return items
 }
 
 func (a *App) IsFilteredToon(name string) bool { return IsFilteredToon(name) }

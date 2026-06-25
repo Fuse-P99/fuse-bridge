@@ -14,6 +14,22 @@ export namespace main {
 	        this.match_count = source["match_count"];
 	    }
 	}
+	export class InventoryItem {
+	    location: string;
+	    name: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new InventoryItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.location = source["location"];
+	        this.name = source["name"];
+	        this.count = source["count"];
+	    }
+	}
 	export class Settings {
 	    guild_chat: boolean;
 	    guild_motd: boolean;

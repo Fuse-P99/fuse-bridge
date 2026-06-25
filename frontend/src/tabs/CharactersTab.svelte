@@ -1,7 +1,8 @@
 <script>
   import { onMount, tick } from 'svelte'
   import {
-    GetCharNames, GetCharContent, GetSettings, SaveSettings,
+    GetCharNames, GetCharContent, GetCharInventory,
+    GetSettings, SaveSettings,
     IsFilteredToon, ToggleFilteredToon
   } from '../../wailsjs/go/main/App'
 
@@ -10,32 +11,34 @@
   let rawContent      = ''
   let highlighted     = ''
   let query           = ''
-  let excludeBots     = true  // overwritten from persisted settings on mount
-  let excludeFiltered = true  // overwritten from persisted settings on mount
+  let excludeBots     = true
+  let excludeFiltered = true
   let matchOffsets    = []
   let matchIdx        = 0
   let detailEl
+
+  let detailTab      = 'all'   // 'all' | 'inventory'
+  let inventoryItems = []      // InventoryItem[]
 
   // Context menu
   let ctx = { visible: false, x: 0, y: 0, name: '', filtered: false }
 
   // ── data loading ──────────────────────────────────────────────────────────
 
-  // keepSelection: true when the user changed exclude filters (makes sense to
-  // deselect a character that's now hidden), false when they're mid-search
-  // (jarring to lose the right pane while typing).
   async function loadChars(keepSelection = false) {
     chars = await GetCharNames(query, excludeBots, excludeFiltered) || []
     if (!keepSelection && selected && !chars.some(e => e.name === selected)) {
-      selected    = ''
-      rawContent  = ''
-      highlighted = ''
+      selected       = ''
+      rawContent     = ''
+      highlighted    = ''
+      inventoryItems = []
     }
   }
 
   async function selectChar(name) {
-    selected   = name
-    rawContent = await GetCharContent(name)
+    selected       = name
+    rawContent     = await GetCharContent(name)
+    inventoryItems = await GetCharInventory(name) || []
     rebuildHighlight()
   }
 
@@ -50,14 +53,12 @@
 
   function rebuildHighlight() {
     if (!rawContent) { highlighted = ''; matchOffsets = []; matchIdx = 0; return }
-
     if (!query) {
       highlighted  = esc(rawContent)
       matchOffsets = []
       matchIdx     = 0
       return
     }
-
     const lower  = rawContent.toLowerCase()
     const lowerQ = query.toLowerCase()
     matchOffsets  = []
@@ -68,8 +69,6 @@
       p = i + lowerQ.length
     }
     if (matchIdx >= matchOffsets.length) matchIdx = 0
-
-    // Build HTML by splitting on match regions
     let html = '', last = 0
     for (let mi = 0; mi < matchOffsets.length; mi++) {
       const s = matchOffsets[mi], e = s + query.length
@@ -90,24 +89,34 @@
   async function handleSearch(e) {
     query    = e.target.value
     matchIdx = 0
-    await loadChars(false)   // re-filter the character list; keep current selection
-    rebuildHighlight()       // highlight matches in the right pane
+    await loadChars(false)
+    rebuildHighlight()
     if (matchOffsets.length) scrollToCurrent()
   }
 
   function prevMatch() {
     if (!matchOffsets.length) return
     matchIdx = (matchIdx - 1 + matchOffsets.length) % matchOffsets.length
-    rebuildHighlight()
-    scrollToCurrent()
+    rebuildHighlight(); scrollToCurrent()
   }
 
   function nextMatch() {
     if (!matchOffsets.length) return
     matchIdx = (matchIdx + 1) % matchOffsets.length
-    rebuildHighlight()
-    scrollToCurrent()
+    rebuildHighlight(); scrollToCurrent()
   }
+
+  // ── inventory ─────────────────────────────────────────────────────────────
+
+  function wikiLink(name) {
+    return 'https://wiki.project1999.com/' + name.replace(/ /g, '_')
+  }
+
+  $: visibleInventory = query
+    ? inventoryItems.filter(it =>
+        it.name.toLowerCase().includes(query.toLowerCase()) ||
+        it.location.toLowerCase().includes(query.toLowerCase()))
+    : inventoryItems
 
   // ── context menu ──────────────────────────────────────────────────────────
 
@@ -125,10 +134,22 @@
     await loadChars()
   }
 
+  // ── clipboard commands ────────────────────────────────────────────────────
+
+  let copyMsg = ''
+  let copyTimer
+
+  function copyCommand(cmd) {
+    navigator.clipboard.writeText(cmd)
+    copyMsg = `Command copied to clipboard — ${cmd}`
+    clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => copyMsg = '', 3000)
+  }
+
   // ── lifecycle ─────────────────────────────────────────────────────────────
 
   onMount(async () => {
-    const s     = await GetSettings()
+    const s         = await GetSettings()
     excludeBots     = s.exclude_bots     ?? true
     excludeFiltered = s.exclude_filtered ?? true
     await loadChars(true)
@@ -157,7 +178,7 @@
         value={query}
         on:input={handleSearch}
       />
-      {#if matchOffsets.length}
+      {#if detailTab === 'all' && matchOffsets.length}
         <span class="match-info">{matchIdx + 1}/{matchOffsets.length}</span>
         <button class="nav" on:click={prevMatch} title="Previous">↑</button>
         <button class="nav" on:click={nextMatch} title="Next">↓</button>
@@ -195,13 +216,69 @@
       {/each}
     </div>
 
-    <div class="detail" bind:this={detailEl}>
+    <div class="detail-pane">
       {#if selected}
-        <pre class="pre">{@html highlighted}</pre>
+        <!-- sub-tab bar -->
+        <div class="sub-tabs">
+          <button class="sub-tab" class:active={detailTab === 'all'}       on:click={() => detailTab = 'all'}>All</button>
+          <button class="sub-tab" class:active={detailTab === 'inventory'} on:click={() => detailTab = 'inventory'}>
+            Inventory{#if inventoryItems.length > 0}<span class="tab-count">({inventoryItems.length})</span>{/if}
+          </button>
+        </div>
+
+        <!-- All tab -->
+        {#if detailTab === 'all'}
+          <div class="detail" bind:this={detailEl}>
+            <pre class="pre">{@html highlighted}</pre>
+          </div>
+
+        <!-- Inventory tab -->
+        {:else if detailTab === 'inventory'}
+          <div class="detail">
+            {#if visibleInventory.length === 0}
+              <div class="empty">{inventoryItems.length === 0 ? 'No inventory file found' : 'No items match'}</div>
+            {:else}
+              <table class="inv-table">
+                <thead>
+                  <tr>
+                    <th class="col-slot">Slot</th>
+                    <th class="col-item">Item</th>
+                    <th class="col-count">#</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each visibleInventory as item}
+                    <tr class:dim={item.count === 1}>
+                      <td class="col-slot slot-label">{item.location}</td>
+                      <td class="col-item">
+                        <a class="wiki-link" href={wikiLink(item.name)} target="_blank" rel="noreferrer">{item.name}</a>
+                      </td>
+                      <td class="col-count">{#if item.count > 1}<span class="stack">{item.count}</span>{/if}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+          </div>
+        {/if}
+
       {:else}
-        <div class="empty">Select a character</div>
+        <div class="detail">
+          <div class="empty">Select a character</div>
+        </div>
       {/if}
     </div>
+  </div>
+
+  <!-- command footer -->
+  <div class="cmd-footer">
+    <div class="cmd-buttons">
+      <button class="cmd-btn" on:click={() => copyCommand('/outputfile inventory')}>Copy Inventory Command</button>
+      <button class="cmd-btn" on:click={() => copyCommand('/outputfile spellbook')}>Copy Spellbook Command</button>
+    </div>
+    {#if copyMsg}
+      <span class="copy-msg">{copyMsg}</span>
+    {/if}
   </div>
 </div>
 
@@ -261,6 +338,26 @@
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
 
+  /* detail pane */
+  .detail-pane { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+
+  /* sub-tabs */
+  .sub-tabs {
+    display:flex; gap:0; flex-shrink:0;
+    border-bottom:1px solid var(--border);
+    background:var(--bg-secondary);
+    padding:0 12px;
+  }
+  .sub-tab {
+    background:none; border:none; border-bottom:2px solid transparent;
+    color:var(--text-muted); cursor:pointer; font-size:12px;
+    padding:7px 12px 6px; transition:color 0.15s, border-color 0.15s;
+    margin-bottom:-1px;
+  }
+  .sub-tab:hover { color:var(--text-primary); }
+  .sub-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-count { color:var(--text-muted); font-size:11px; margin-left:4px; }
+
   .detail { flex:1; overflow:auto; padding:10px 14px; }
   .pre {
     font-size:13px; color:var(--text-secondary);
@@ -268,7 +365,59 @@
     user-select:text;
   }
 
+  /* inventory table */
+  .inv-table {
+    width:100%; border-collapse:collapse; font-size:12px;
+  }
+  .inv-table thead th {
+    text-align:left; color:var(--text-muted); font-weight:600;
+    font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:6px 10px 6px 0; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:var(--bg-primary);
+  }
+  .inv-table tbody tr { border-bottom:1px solid rgba(37,40,54,0.6); }
+  .inv-table tbody tr:hover { background:rgba(255,255,255,0.03); }
+  .inv-table td { padding:5px 10px 5px 0; vertical-align:middle; }
+
+  .col-slot  { width:110px; }
+  .col-item  { }
+  .col-count { width:36px; text-align:right; padding-right:4px; }
+
+  .slot-label { color:var(--text-muted); font-size:11px; }
+
+  .wiki-link {
+    color:var(--text-primary); text-decoration:none;
+    transition:color 0.12s;
+  }
+  .wiki-link:hover { color:var(--accent); text-decoration:underline; }
+
+  .stack {
+    background:rgba(200,169,81,0.15); color:var(--accent);
+    border-radius:3px; font-size:11px; padding:1px 5px;
+  }
+
   .empty { padding:40px 20px; color:var(--text-muted); font-size:12px; text-align:center; }
+
+  /* command footer */
+  .cmd-footer {
+    display:flex; align-items:center; gap:12px; flex-shrink:0;
+    padding:8px 12px;
+    border-top:1px solid var(--border);
+    background:var(--bg-secondary);
+  }
+  .cmd-buttons { display:flex; gap:8px; }
+  .cmd-btn {
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:4px;
+    color:var(--text-secondary); cursor:pointer; font-size:11px;
+    padding:4px 10px; transition:border-color 0.15s, color 0.15s;
+    white-space:nowrap;
+  }
+  .cmd-btn:hover { border-color:var(--accent-dim); color:var(--accent); }
+  .copy-msg {
+    font-size:11px; color:var(--success);
+    animation: fade-in 0.15s ease;
+  }
+  @keyframes fade-in { from { opacity:0 } to { opacity:1 } }
 
   /* context menu */
   .ctx-menu {
