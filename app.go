@@ -13,7 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed frontend/dist
@@ -55,12 +55,12 @@ func (a *App) Show() {
 	if a.ctx == nil {
 		return
 	}
-	runtime.WindowCenter(a.ctx)
-	runtime.WindowShow(a.ctx)
+	wailsruntime.WindowCenter(a.ctx)
+	wailsruntime.WindowShow(a.ctx)
 	// Brief always-on-top flicker ensures the window comes to front even if
 	// another app is currently focused.
-	runtime.WindowSetAlwaysOnTop(a.ctx, true)
-	runtime.WindowSetAlwaysOnTop(a.ctx, false)
+	wailsruntime.WindowSetAlwaysOnTop(a.ctx, true)
+	wailsruntime.WindowSetAlwaysOnTop(a.ctx, false)
 }
 
 func startWails() {
@@ -85,7 +85,7 @@ func startWails() {
 		StartHidden:      true,
 		OnBeforeClose: func(ctx context.Context) bool {
 			// Hide instead of quit — the tray keeps the app alive.
-			runtime.WindowHide(ctx)
+			wailsruntime.WindowHide(ctx)
 			return true
 		},
 		Windows: &windows.Options{
@@ -141,7 +141,7 @@ func (a *App) GetAutoStart() bool { return isAutoStartEnabled() }
 func (a *App) SetAutoStart(enabled bool) error { return setAutoStart(enabled) }
 
 func (a *App) BrowseEQDirectory() string {
-	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "Select your EverQuest installation folder",
 	})
 	if err != nil || dir == "" {
