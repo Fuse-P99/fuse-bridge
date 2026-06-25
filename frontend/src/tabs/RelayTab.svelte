@@ -6,15 +6,15 @@
   let loaded   = false
 
   const options = [
-    { key: 'guild_chat',          label: 'Guild chat'                     },
+    { key: 'guild_chat',          label: 'Guild Chat'                     },
     { key: 'guild_motd',          label: 'Guild MOTD'                     },
     { key: 'broadcasts',          label: 'GM Broadcasts'                  },
     { key: 'server_messages',     label: 'Server Messages'                },
-    { key: 'quake_messages',      label: 'Quake messages'                 },
-    { key: 'engage_messages',     label: 'Engage messages'                },
+    { key: 'quake_messages',      label: 'Quake Messages'                 },
+    { key: 'engage_messages',     label: 'Engage Messages'                },
     { key: 'who_output',          label: '/who output'                    },
-    { key: 'character_locations', label: 'Character locations'            },
-    { key: 'slain_messages',      label: 'Slain messages'     },
+    { key: 'character_locations', label: 'Character Locs'                 },
+    { key: 'slain_messages',      label: 'Slain Messages'                 },
   ]
 
   onMount(async () => {
