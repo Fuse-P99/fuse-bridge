@@ -1,0 +1,155 @@
+export namespace main {
+	
+	export class Settings {
+	    guild_chat: boolean;
+	    guild_motd: boolean;
+	    broadcasts: boolean;
+	    server_messages: boolean;
+	    quake_messages: boolean;
+	    engage_messages: boolean;
+	    who_output: boolean;
+	    character_locations: boolean;
+	    exclude_bots: boolean;
+	    exclude_filtered: boolean;
+	    startup_configured: boolean;
+	    eq_directory: string;
+	    admin_mode: boolean;
+	    slain_messages: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Settings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.guild_chat = source["guild_chat"];
+	        this.guild_motd = source["guild_motd"];
+	        this.broadcasts = source["broadcasts"];
+	        this.server_messages = source["server_messages"];
+	        this.quake_messages = source["quake_messages"];
+	        this.engage_messages = source["engage_messages"];
+	        this.who_output = source["who_output"];
+	        this.character_locations = source["character_locations"];
+	        this.exclude_bots = source["exclude_bots"];
+	        this.exclude_filtered = source["exclude_filtered"];
+	        this.startup_configured = source["startup_configured"];
+	        this.eq_directory = source["eq_directory"];
+	        this.admin_mode = source["admin_mode"];
+	        this.slain_messages = source["slain_messages"];
+	    }
+	}
+	export class StatusSnapshot {
+	    eq_running: boolean;
+	    log_file: string;
+	    connected: boolean;
+	    activity: string[];
+	    version: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StatusSnapshot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eq_running = source["eq_running"];
+	        this.log_file = source["log_file"];
+	        this.connected = source["connected"];
+	        this.activity = source["activity"];
+	        this.version = source["version"];
+	    }
+	}
+	export class adminClientEntry {
+	    name: string;
+	    version: string;
+	    // Go type: time
+	    last_seen: any;
+	    connected: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new adminClientEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.last_seen = this.convertValues(source["last_seen"], null);
+	        this.connected = source["connected"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class zoneChar {
+	    name: string;
+	    level: number;
+	    class: string;
+	    race: string;
+	    guild: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new zoneChar(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.level = source["level"];
+	        this.class = source["class"];
+	        this.race = source["race"];
+	        this.guild = source["guild"];
+	    }
+	}
+	export class zoneData {
+	    name: string;
+	    // Go type: time
+	    last_seen: any;
+	    characters: zoneChar[];
+	
+	    static createFrom(source: any = {}) {
+	        return new zoneData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.last_seen = this.convertValues(source["last_seen"], null);
+	        this.characters = this.convertValues(source["characters"], zoneChar);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
