@@ -14,7 +14,7 @@
     { key: 'engage_messages',     label: 'Engage messages'                },
     { key: 'who_output',          label: '/who output'                    },
     { key: 'character_locations', label: 'Character locations'            },
-    { key: 'slain_messages',      label: 'Slain messages (raid mobs)'     },
+    { key: 'slain_messages',      label: 'Slain messages'     },
   ]
 
   onMount(async () => {
