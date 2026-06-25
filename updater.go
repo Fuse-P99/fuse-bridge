@@ -38,8 +38,42 @@ func startUpdateChecker() {
 	}()
 }
 
+// updateStampPath returns the path of the file used to track the last update attempt.
+func updateStampPath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(exe), "FuseBridge-update.stamp")
+}
+
+// recentUpdateAttempt returns true if an update was attempted in the last 30 minutes.
+// This prevents a restart loop when the server is serving an exe with a stale version.
+func recentUpdateAttempt() bool {
+	p := updateStampPath()
+	if p == "" {
+		return false
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return false
+	}
+	return time.Since(info.ModTime()) < 30*time.Minute
+}
+
+func touchUpdateStamp() {
+	p := updateStampPath()
+	if p == "" {
+		return
+	}
+	os.WriteFile(p, nil, 0644)
+}
+
 func checkForUpdate() {
 	if !logIsStale() {
+		return
+	}
+	if recentUpdateAttempt() {
 		return
 	}
 	base := strings.TrimSuffix(serverURL, "/submit")
@@ -92,6 +126,7 @@ func versionGreaterThan(a, b string) bool {
 }
 
 func applyUpdate(baseURL string) {
+	touchUpdateStamp()
 	exePath, err := os.Executable()
 	if err != nil {
 		addStatus("Update failed: cannot find executable path: %v", err)
