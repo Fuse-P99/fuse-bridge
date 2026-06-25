@@ -54,9 +54,12 @@
   .shell {
     display: flex;
     flex-direction: column;
-    height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 40px;
+    font-size: 13px;
+
+    /* UI scale — change both numbers together (height = 100vh / zoom) */
+    zoom: 1.2;
+    height: calc(100vh / 1.2);
   }
 
   .tab-bar {
