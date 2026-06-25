@@ -9,6 +9,7 @@ func main() {
 	// before we try to create a tray icon.
 	time.Sleep(5 * time.Second)
 
+	writeLog("FuseBridge starting, clientVersion=" + clientVersion)
 	currentSettings = LoadSettings()
 	LoadZones()
 	loadFilteredToons()

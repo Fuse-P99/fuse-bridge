@@ -7,7 +7,7 @@ set SERVER_URL=https://yourserver.com:5678/submit
 set API_KEY=REPLACE_WITH_CLIENT_API_KEY_FROM_CONFIG_JSON
 
 REM VERSION is read from settings.json — update settings.json when cutting a new release.
-for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "(Get-Content 'settings.json' ^| ConvertFrom-Json).version"`) do set VERSION=%%v
+for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "(Get-Content 'settings.json' ^| ConvertFrom-Json).version.Trim()"`) do set VERSION=%%v
 
 wails build -ldflags "-X main.serverURL=%SERVER_URL% -X main.apiKey=%API_KEY% -X main.clientVersion=%VERSION%"
 
