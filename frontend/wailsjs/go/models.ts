@@ -78,6 +78,8 @@ export namespace main {
 	    mana: number;
 	    cast_time: string;
 	    wiki_url: string;
+	    description: string;
+	    spell_type: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellEntry(source);
@@ -90,6 +92,8 @@ export namespace main {
 	        this.mana = source["mana"];
 	        this.cast_time = source["cast_time"];
 	        this.wiki_url = source["wiki_url"];
+	        this.description = source["description"];
+	        this.spell_type = source["spell_type"];
 	    }
 	}
 	export class StatusSnapshot {

@@ -282,11 +282,13 @@ func (a *App) GetCharSpellbook(name string) []string {
 
 // SpellEntry mirrors SpellResult from the server's /spells endpoint.
 type SpellEntry struct {
-	Name     string `json:"name"`
-	Level    int    `json:"level"`
-	Mana     int    `json:"mana"`
-	CastTime string `json:"cast_time"`
-	WikiURL  string `json:"wiki_url"`
+	Name        string `json:"name"`
+	Level       int    `json:"level"`
+	Mana        int    `json:"mana"`
+	CastTime    string `json:"cast_time"`
+	WikiURL     string `json:"wiki_url"`
+	Description string `json:"description"`
+	SpellType   string `json:"spell_type"`
 }
 
 // GetCharClassWithInference determines a character's class using two steps:

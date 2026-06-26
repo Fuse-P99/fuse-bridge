@@ -422,8 +422,8 @@
                       {:else}
                         <span class="spell-link" class:spell-link-missing={missing}>{spell.name}</span>
                       {/if}
-                      {#if spell.mana > 0}
-                        <span class="spell-mana">{spell.mana}m</span>
+                      {#if spell.description}
+                        <span class="spell-desc">{spell.description}</span>
                       {/if}
                     </div>
                   {/each}
@@ -622,7 +622,7 @@
   .spell-link-missing { color:#e05c5c !important; }
   a.spell-link-missing:hover { color:#f07070 !important; }
 
-  .spell-mana { font-size:10px; color:var(--text-muted); flex-shrink:0; white-space:nowrap; }
+  .spell-desc { font-size:10px; color:var(--text-muted); margin-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   /* command footer */
   .cmd-footer {
