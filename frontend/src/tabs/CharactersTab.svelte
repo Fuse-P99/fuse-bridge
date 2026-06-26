@@ -120,9 +120,13 @@
 
   // ── reactive spell derivations ────────────────────────────────────────────
 
-  // Set of spell names from the local spellbook file (lowercase for comparison).
+  // Normalize a spell name for comparison: lowercase and treat backtick as
+  // apostrophe (EQ spellbook files use ` for possessives; wiki uses ').
+  function normalizeName(n) { return n.toLowerCase().replace(/`/g, "'") }
+
+  // Set of spell names from the local spellbook file (normalized for comparison).
   // null when no spellbook file exists — disables missing highlighting.
-  $: spellbookSet = spellbook ? new Set(spellbook.map(n => n.toLowerCase())) : null
+  $: spellbookSet = spellbook ? new Set(spellbook.map(normalizeName)) : null
 
   // Spell list grouped by level, highest level first, alpha within each level.
   $: levelGroups = (() => {
@@ -137,11 +141,11 @@
   })()
 
   $: missingCount = spellbookSet
-    ? spellList.filter(s => !spellbookSet.has(s.name.toLowerCase())).length
+    ? spellList.filter(s => !spellbookSet.has(normalizeName(s.name))).length
     : 0
 
   function isMissing(spellName) {
-    return spellbookSet !== null && !spellbookSet.has(spellName.toLowerCase())
+    return spellbookSet !== null && !spellbookSet.has(normalizeName(spellName))
   }
 
   // ── search / highlight ────────────────────────────────────────────────────
