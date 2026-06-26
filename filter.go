@@ -19,12 +19,13 @@ var (
 	slainMobExtractRE = regexp.MustCompile(`(?:\t|] )(.+?) has been slain by`)
 	enteredZonePattern = regexp.MustCompile(`You have entered (.+)\.`)
 	// Matches /who output lines: header, player entries (including LINKDEAD/AFK prefixes), and footer.
-	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There are \d+ players in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS)\])`)
+	// Footer handles both "There are N players" and the single-player "There is 1 player".
+	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There (?:is|are) \d+ players? in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS|ROLEPLAY)\])`)
 )
 
 var (
 	whoHeaderRE = regexp.MustCompile(`Players (?:on|in) EverQuest:`)
-	whoFooterRE = regexp.MustCompile(`There are \d+ players in`)
+	whoFooterRE = regexp.MustCompile(`There (?:is|are) \d+ players? in`)
 
 	whoRateMu        sync.Mutex
 	whoLastForwarded time.Time
@@ -43,6 +44,8 @@ func shouldForwardWhoLine(line string) bool {
 	if whoHeaderRE.MatchString(line) {
 		if time.Since(whoLastForwarded) < whoRateLimit {
 			whoSuppressing = true
+			wait := whoRateLimit - time.Since(whoLastForwarded)
+			addStatus("/who not forwarded — rate limited (try again in %ds)", int(wait.Seconds())+1)
 			return false
 		}
 		whoLastForwarded = time.Now()
