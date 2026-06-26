@@ -414,17 +414,28 @@
                   {#each group.spells as spell}
                     {@const missing = isMissing(spell.name)}
                     <div class="spell-row" class:spell-missing={missing}>
-                      {#if spell.wiki_url}
-                        <a class="spell-link" class:spell-link-missing={missing}
-                           href={spell.wiki_url} target="_blank" rel="noreferrer">
-                          {spell.name}
-                        </a>
-                      {:else}
-                        <span class="spell-link" class:spell-link-missing={missing}>{spell.name}</span>
-                      {/if}
-                      {#if spell.description}
-                        <span class="spell-desc">{spell.description}</span>
-                      {/if}
+                      <div class="spell-name-col">
+                        {#if spell.wiki_url}
+                          <a class="spell-link" class:spell-link-missing={missing}
+                             href={spell.wiki_url} target="_blank" rel="noreferrer">
+                            {spell.name}
+                          </a>
+                        {:else}
+                          <span class="spell-link" class:spell-link-missing={missing}>{spell.name}</span>
+                        {/if}
+                      </div>
+                      <div class="spell-desc-col">
+                        {#if spell.description}
+                          <span class="spell-desc">{spell.description}</span>
+                        {/if}
+                      </div>
+                      <div class="spell-stat-col">
+                        {#if charClass === 'Bard'}
+                          {#if spell.spell_type}<span class="spell-stat">{spell.spell_type}</span>{/if}
+                        {:else}
+                          {#if spell.mana > 0}<span class="spell-stat">{spell.mana}m</span>{/if}
+                        {/if}
+                      </div>
                     </div>
                   {/each}
                 {/each}
@@ -607,22 +618,28 @@
   }
 
   .spell-row {
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center;
     padding:3px 0; gap:8px;
     border-bottom:1px solid rgba(37,40,54,0.4);
   }
   .spell-row:last-child { border-bottom:none; }
 
+  .spell-name-col  { flex:0 0 180px; min-width:0; }
+  .spell-desc-col  { flex:1; min-width:0; overflow:hidden; }
+  .spell-stat-col  { flex:0 0 70px; text-align:right; }
+
   .spell-link {
     font-size:12px; color:var(--text-secondary);
-    text-decoration:none; flex:1; transition:color 0.12s;
+    text-decoration:none; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; display:block; transition:color 0.12s;
   }
   a.spell-link:hover { color:var(--accent); text-decoration:underline; }
 
   .spell-link-missing { color:#e05c5c !important; }
   a.spell-link-missing:hover { color:#f07070 !important; }
 
-  .spell-desc { font-size:10px; color:var(--text-muted); margin-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .spell-desc { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+  .spell-stat { font-size:10px; color:var(--text-muted); white-space:nowrap; }
 
   /* command footer */
   .cmd-footer {
