@@ -73,14 +73,20 @@
       GetCharSpellbook(name)
     ])
 
+    // Guard: user may have clicked a different character while we were loading.
+    if (selected !== name) return
+
     rawContent     = content
     inventoryItems = inventory || []
     spellbook      = sb   // null = file not found; [] = file present but empty
     rebuildHighlight()
 
-    // Now resolve class: server lookup first, then infer from spellbook spells.
-    charClass        = await GetCharClassWithInference(name, sb || []) || ''
-    charClassLoading = false
+    // Resolve class via server then spellbook inference (slow — server HTTP call).
+    const cls = await GetCharClassWithInference(name, sb || []) || ''
+    if (selected === name) {
+      charClass        = cls
+      charClassLoading = false
+    }
   }
 
   // Show the Spells tab unless class is definitively a non-caster.
