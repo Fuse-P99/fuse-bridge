@@ -2,9 +2,9 @@
   import { onMount, onDestroy, tick } from 'svelte'
   import { GetZones } from '../../wailsjs/go/main/App'
 
-  let zones       = []
-  let selectedIdx = 0
-  let error       = ''
+  let zones        = []
+  let selectedZone = ''
+  let error        = ''
   let interval
 
   // search
@@ -133,13 +133,19 @@
   onMount(async () => { await load(); interval = setInterval(load, 10000) })
   onDestroy(() => clearInterval(interval))
 
-  $: zone  = zones[selectedIdx]
+  // Order the zone list by most-recent /who first (stable: name breaks ties),
+  // so it stops reshuffling when no new data is arriving.
+  $: sortedZones = [...zones].sort((a, b) => {
+    const d = new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime()
+    return d !== 0 ? d : a.name.localeCompare(b.name)
+  })
+  $: zone  = sortedZones.find(z => z.name === selectedZone) || sortedZones[0]
   $: model = buildModel(zone)
 
-  // Reset class expansion when the user switches zones.
-  let lastSelected = -1
-  $: if (selectedIdx !== lastSelected) {
-    lastSelected = selectedIdx
+  // Reset class expansion when the displayed zone changes.
+  let lastSelected = ''
+  $: if (zone && zone.name !== lastSelected) {
+    lastSelected = zone.name
     expandedClasses = new Set()
     collapsedGuilds = new Set()
   }
@@ -155,14 +161,14 @@
     {#if !zones.length}
       <div class="empty">{error || 'No zone data'}</div>
     {/if}
-    {#each zones as z, i}
+    {#each sortedZones as z (z.name)}
       <div
         class="zone-row"
-        class:sel={i === selectedIdx}
+        class:sel={zone && z.name === zone.name}
         role="button"
         tabindex="0"
-        on:click={() => selectedIdx = i}
-        on:keydown={e => e.key === 'Enter' && (selectedIdx = i)}
+        on:click={() => selectedZone = z.name}
+        on:keydown={e => e.key === 'Enter' && (selectedZone = z.name)}
       >
         <span class="zone-name">{z.name}</span>
         <span class="zone-ct">({z.characters?.length || 0})</span>
