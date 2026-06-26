@@ -3,7 +3,6 @@ package main
 import (
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -23,45 +22,10 @@ var (
 	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There (?:is|are) \d+ players? in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS|ROLEPLAY)\])`)
 )
 
-var (
-	whoHeaderRE = regexp.MustCompile(`Players (?:on|in) EverQuest:`)
-	whoFooterRE = regexp.MustCompile(`There (?:is|are) \d+ players? in`)
-
-	whoRateMu        sync.Mutex
-	whoLastForwarded time.Time
-	whoSuppressing   bool
-)
-
-const whoRateLimit = 30 * time.Second
-
-// shouldForwardWhoLine enforces the 30-second rate limit on /who output.
-// It tracks block state so the entire block (header + players + footer) is
-// either forwarded or suppressed as a unit.
-func shouldForwardWhoLine(line string) bool {
-	whoRateMu.Lock()
-	defer whoRateMu.Unlock()
-
-	if whoHeaderRE.MatchString(line) {
-		if time.Since(whoLastForwarded) < whoRateLimit {
-			whoSuppressing = true
-			wait := whoRateLimit - time.Since(whoLastForwarded)
-			addStatus("/who not forwarded — rate limited (try again in %ds)", int(wait.Seconds())+1)
-			return false
-		}
-		whoLastForwarded = time.Now()
-		whoSuppressing = false
-		return true
-	}
-
-	if whoSuppressing {
-		if whoFooterRE.MatchString(line) {
-			whoSuppressing = false
-		}
-		return false
-	}
-
-	return true
-}
+// /who output is forwarded without a client-side rate limit. The server
+// deduplicates identical /who lines (5-minute TTL), so repeated identical
+// snapshots cost nothing, while distinct /who for different zones — all valuable
+// for the zone roster — are no longer suppressed.
 
 // loginTime is set whenever "Welcome to EverQuest!" appears in the log.
 // A MOTD seen within loginSuppressWindow of a login is suppressed — it's the
@@ -106,7 +70,7 @@ func ShouldForward(line string) bool {
 		return true
 	}
 	if s.WhoOutput && whoPattern.MatchString(line) {
-		return shouldForwardWhoLine(line)
+		return true
 	}
 	if s.CharacterLocations && enteredZonePattern.MatchString(line) {
 		return true

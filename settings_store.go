@@ -34,8 +34,11 @@ func settingsPath() string {
 	return filepath.Join(dir, "FuseBridgekeeper", "settings.json")
 }
 
-func LoadSettings() Settings {
-	defaults := Settings{
+// defaultSettings returns the baseline settings with every forwarding category
+// enabled. Fields not listed here (AdminMode, StartupConfigured, EQDirectory)
+// intentionally default to their zero value.
+func defaultSettings() Settings {
+	return Settings{
 		GuildChat:          true,
 		GuildMotd:          true,
 		Broadcasts:         true,
@@ -44,17 +47,24 @@ func LoadSettings() Settings {
 		EngageMessages:     true,
 		WhoOutput:          true,
 		CharacterLocations: true,
+		SlainMessages:      true,
 		ExcludeBots:        true,
 		ExcludeFiltered:    true,
 	}
+}
+
+func LoadSettings() Settings {
+	// Start from defaults and unmarshal the saved file ON TOP, so a field that's
+	// absent from an older settings.json keeps its default (true) instead of
+	// silently becoming false. Booleans explicitly set to false are respected.
+	s := defaultSettings()
 	path := settingsPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return defaults
+		return s
 	}
-	var s Settings
 	if err := json.Unmarshal(data, &s); err != nil {
-		return defaults
+		return defaultSettings()
 	}
 	return s
 }
