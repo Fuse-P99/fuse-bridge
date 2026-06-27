@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte'
+  import { onMount, onDestroy, tick } from 'svelte'
   import { GetCurrentZone, GetPlayerPosition, GetGuildMapPositions, GetCharacterName, GetZoneInfo } from '../../wailsjs/go/main/App'
   import { resolveMapBase, normalizeZone } from '../lib/zoneMaps.js'
 
@@ -302,6 +302,7 @@
     charName = (await GetCharacterName().catch(() => '')) || ''
     await loadManifest()
     await loadZoneIndex()
+    await tick()
     resize()
     window.addEventListener('resize', resize)
     await poll()
