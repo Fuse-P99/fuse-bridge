@@ -30,10 +30,13 @@
   let justLoaded = false
   let pollTimer, drawReq
 
-  // EQ /loc and the bundled map files use opposite Y directions, so we keep the
-  // X axis inverted for east/west while leaving Y as-is for north/south.
-  const bX = x => -x
-  const bY = y => y
+  // The map geometry and the player's /loc data are not always expressed with the
+  // same Y-axis convention, so keep the geometry transform separate from the
+  // player marker transform.
+  const mapX = x => -x
+  const mapY = y => -y
+  const playerX = x => -x
+  const playerY = y => -y
 
   function colorOf(r, g, b) { return `rgb(${r},${g},${b})` }
 
@@ -49,12 +52,12 @@
       if (kind === 'L' && f.length >= 9) {
         const x1 = +f[0], y1 = +f[1], z1 = +f[2], x2 = +f[3], y2 = +f[4], z2 = +f[5]
         const r = +f[6], g = +f[7], b = +f[8]
-        lines.push({ x1: bX(x1), y1: bY(y1), x2: bX(x2), y2: bY(y2), color: colorOf(r, g, b) })
+        lines.push({ x1: mapX(x1), y1: mapY(y1), x2: mapX(x2), y2: mapY(y2), color: colorOf(r, g, b) })
         zsum += z1 + z2; zn += 2
       } else if (kind === 'P' && f.length >= 8) {
         const x = +f[0], y = +f[1], r = +f[3], g = +f[4], b = +f[5]
         const label = f.slice(7).join(',').trim().replace(/_/g, ' ')
-        points.push({ x: bX(x), y: bY(y), color: colorOf(r, g, b), label })
+        points.push({ x: mapX(x), y: mapY(y), color: colorOf(r, g, b), label })
       }
     }
     return { z: zn ? zsum / zn : 0, lines, points }
@@ -169,8 +172,8 @@
     if (!layers.length) return
 
     if (follow && havePos) {
-      offsetX = W / 2 - bX(pos.x) * scale
-      offsetY = H / 2 - bY(pos.y) * scale
+      offsetX = W / 2 - playerX(pos.x) * scale
+      offsetY = H / 2 - playerY(pos.y) * scale
     }
 
     const alphas = layerAlphas()
@@ -217,7 +220,7 @@
     ctx.textAlign = 'center'
     for (const o of others) {
       if (charName && o.name && o.name.toLowerCase() === charName.toLowerCase()) continue
-      const x = sx(bX(o.x)), y = sy(bY(o.y))
+      const x = sx(playerX(o.x)), y = sy(playerY(o.y))
       ctx.fillStyle = '#33d6ff'
       ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill()
       ctx.fillStyle = '#bfefff'
@@ -239,7 +242,7 @@
 
     // player dot + heading
     if (havePos) {
-      const x = sx(bX(pos.x)), y = sy(bY(pos.y))
+      const x = sx(playerX(pos.x)), y = sy(playerY(pos.y))
       if (pos.heading >= 0) {
         const a = pos.heading * Math.PI / 180  // 0=N(up), CW
         const hx = Math.sin(a), hy = -Math.cos(a)
@@ -293,7 +296,7 @@
         const changed = !pos || p.time !== pos.time
         pos = p; havePos = true
         if (changed && p.zone === zoneName) {
-          trail.push({ bx: bX(p.x), by: bY(p.y) })
+          trail.push({ bx: playerX(p.x), by: playerY(p.y) })
           if (trail.length > 60) trail.shift()
         }
       }
