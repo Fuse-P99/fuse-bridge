@@ -27,6 +27,7 @@
   let view0 = false            // whether an initial fit has been done for this zone
 
   let dragging = false, lastMX = 0, lastMY = 0
+  let justLoaded = false
   let pollTimer, drawReq
 
   // EQ world -> base screen space (North up, East right): bx = -X, by = -Y.
@@ -111,6 +112,9 @@
     }
     bounds = { minX, maxX, minY, maxY }
     status = ''
+    follow = false
+    view0 = false
+    justLoaded = true
     fitView()
     draw()
   }
@@ -126,21 +130,10 @@
     view0 = true
   }
 
-  // Per-layer opacity from player elevation: the two layers bracketing the
-  // player's Z cross-fade; right on a floor -> that floor full; ~90% up a ramp ->
-  // upper ~0.9 / lower ~0.1. Unknown Z (no /loc yet) -> show all.
+  // Per-layer opacity from player elevation. For now, draw all layers so
+  // the map geometry is always visible in the pane.
   function layerAlphas() {
-    if (layers.length <= 1) return layers.map(() => 1)
-    if (!havePos) return layers.map(() => 1)
-    const pz = pos.z
-    const order = layers.map((l, i) => i).sort((a, b) => Math.abs(pz - layers[a].z) - Math.abs(pz - layers[b].z))
-    const a = order[0], b = order[1]
-    const da = Math.abs(pz - layers[a].z), db = Math.abs(pz - layers[b].z)
-    const t = (da + db) > 0 ? da / (da + db) : 0
-    const alphas = layers.map(() => 0)
-    alphas[a] = 1 - t
-    alphas[b] = t
-    return alphas
+    return layers.map(() => 1)
   }
 
   const sx = bx => bx * scale + offsetX
@@ -167,7 +160,9 @@
       const a = alphas[i]
       if (a <= 0.02) continue
       ctx.globalAlpha = a
-      ctx.lineWidth = 1
+      ctx.lineWidth = Math.max(1, Math.round(Math.min(2, scale * 2)))
+      ctx.lineJoin = 'round'
+      ctx.lineCap = 'round'
       const L = layers[i]
       ctx.beginPath()
       let cur = null
@@ -293,7 +288,10 @@
     if (!canvas || !wrap) return
     canvas.width = wrap.clientWidth
     canvas.height = wrap.clientHeight
-    if (!view0) fitView()
+    if (!view0 || justLoaded) {
+      fitView()
+      justLoaded = false
+    }
     draw()
   }
 
