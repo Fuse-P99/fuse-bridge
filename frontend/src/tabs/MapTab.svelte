@@ -142,6 +142,8 @@
   function draw() {
     if (!ctx || !canvas) return
     const W = canvas.width, H = canvas.height
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1
     ctx.clearRect(0, 0, W, H)
     ctx.fillStyle = '#0d1117'
     ctx.fillRect(0, 0, W, H)
