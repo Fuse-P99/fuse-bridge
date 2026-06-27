@@ -3,25 +3,37 @@
 // manifest always matches whatever map files are bundled. Keyed by lowercase base
 // name (for case-insensitive zone resolution) with the real-case filename base
 // preserved so fetches work on case-sensitive hosts.
-import { readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { readdirSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
-const mapsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'maps')
-if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true })
+const mapsDir = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "public",
+  "maps",
+);
+if (!existsSync(mapsDir)) mkdirSync(mapsDir, { recursive: true });
 
-const m = {}
+const m = {};
 for (const f of readdirSync(mapsDir)) {
-  if (!f.toLowerCase().endsWith('.txt')) continue
-  const mt = f.match(/^(.*)_(\d+)\.txt$/i)
-  if (!mt) continue
-  const base = mt[1]
-  const layer = parseInt(mt[2], 10)
-  const key = base.toLowerCase()
-  if (!m[key]) m[key] = { base, layers: [] }
-  if (!m[key].layers.includes(layer)) m[key].layers.push(layer)
+  if (!f.toLowerCase().endsWith(".txt")) continue;
+  const baseName = f.replace(/\.txt$/i, "");
+  const mt = f.match(/^(.*)_(\d+)\.txt$/i);
+  if (mt) {
+    const base = mt[1];
+    const layer = parseInt(mt[2], 10);
+    const key = base.toLowerCase();
+    if (!m[key]) m[key] = { base, layers: [] };
+    if (!m[key].layers.includes(layer)) m[key].layers.push(layer);
+  } else {
+    const key = baseName.toLowerCase();
+    if (!m[key]) m[key] = { base: baseName, layers: [] };
+    else if (!m[key].base || m[key].base.toLowerCase() === key)
+      m[key].base = baseName;
+  }
 }
-for (const k in m) m[k].layers.sort((a, b) => a - b)
+for (const k in m) m[k].layers.sort((a, b) => a - b);
 
-writeFileSync(join(mapsDir, 'manifest.json'), JSON.stringify(m))
-console.log(`map manifest: ${Object.keys(m).length} zones`)
+writeFileSync(join(mapsDir, "manifest.json"), JSON.stringify(m));
+console.log(`map manifest: ${Object.keys(m).length} zones`);

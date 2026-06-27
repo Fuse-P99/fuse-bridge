@@ -67,6 +67,19 @@
     } catch { manifest = {}; manifestBases = new Set() }
   }
 
+  async function fetchMapText(fileBase) {
+    const clean = (fileBase || '').replace(/\.txt$/i, '')
+    const variants = [clean, clean.toLowerCase()]
+    for (const v of variants) {
+      const fileName = `${v}.txt`
+      try {
+        const res = await fetch(`/maps/${fileName}`)
+        if (res.ok) return await res.text()
+      } catch { /* skip */ }
+    }
+    return null
+  }
+
   // Build a zone-display-name -> map-base lookup from the server's eqzones data,
   // matching each zone's long name and nicknames against the bundled map bases.
   async function loadZoneIndex() {
@@ -94,12 +107,15 @@
     const fileBase = manifest[key].base
     const layerNums = manifest[key].layers && manifest[key].layers.length ? manifest[key].layers : [1]
     const loaded = []
+
+    // The bundled maps use the unnumbered .txt file for the base geometry and
+    // numbered files such as _1.txt for POI/overlay layers.
+    const baseText = await fetchMapText(fileBase)
+    if (baseText) loaded.push(parseMap(baseText))
+
     for (const n of layerNums) {
-      try {
-        const res = await fetch(`/maps/${fileBase}_${n}.txt`)
-        if (!res.ok) continue
-        loaded.push(parseMap(await res.text()))
-      } catch { /* skip */ }
+      const layerText = await fetchMapText(`${fileBase}_${n}`)
+      if (layerText) loaded.push(parseMap(layerText))
     }
     loaded.sort((a, b) => a.z - b.z)
     layers = loaded
@@ -121,7 +137,8 @@
 
   function fitView() {
     if (!bounds || !canvas) return
-    const W = canvas.width, H = canvas.height
+    const W = Math.max(1, canvas.width || wrap?.clientWidth || 1)
+    const H = Math.max(1, canvas.height || wrap?.clientHeight || 1)
     const spanX = Math.max(1, bounds.maxX - bounds.minX)
     const spanY = Math.max(1, bounds.maxY - bounds.minY)
     scale = 0.9 * Math.min(W / spanX, H / spanY)
@@ -288,8 +305,10 @@
 
   function resize() {
     if (!canvas || !wrap) return
-    canvas.width = wrap.clientWidth
-    canvas.height = wrap.clientHeight
+    const W = Math.max(1, wrap.clientWidth || 0)
+    const H = Math.max(1, wrap.clientHeight || 0)
+    canvas.width = W
+    canvas.height = H
     if (!view0 || justLoaded) {
       fitView()
       justLoaded = false
