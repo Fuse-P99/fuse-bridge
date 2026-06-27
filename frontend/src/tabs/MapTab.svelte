@@ -38,7 +38,10 @@
   const playerX = x => -x
   const playerY = y => -y
 
-  function colorOf(r, g, b) { return `rgb(${r},${g},${b})` }
+  function colorOf(r, g, b) {
+    const isBlack = r === 0 && g === 0 && b === 0
+    return isBlack ? 'white' : `rgb(${r},${g},${b})`
+  }
 
   function parseMap(text) {
     const lines = [], points = []
