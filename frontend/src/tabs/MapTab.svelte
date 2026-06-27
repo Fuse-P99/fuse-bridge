@@ -301,6 +301,7 @@
     ctx = canvas.getContext('2d')
     charName = (await GetCharacterName().catch(() => '')) || ''
     await loadManifest()
+    await loadZoneIndex()
     resize()
     window.addEventListener('resize', resize)
     await poll()
