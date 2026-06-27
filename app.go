@@ -377,6 +377,16 @@ func (a *App) GetGuildMapPositions(zone string) []MapPosition {
 	return positions
 }
 
+// GetZoneInfo returns every zone's long name + nicknames, for resolving a zone
+// display name to a bundled map file base.
+func (a *App) GetZoneInfo() []ZoneNick {
+	zones, err := fetchZoneInfo()
+	if err != nil {
+		return nil
+	}
+	return zones
+}
+
 // --- Zones ---
 
 // wailsZoneData mirrors zoneData with LastSeen as Unix milliseconds so the

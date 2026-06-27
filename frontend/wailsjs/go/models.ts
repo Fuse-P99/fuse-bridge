@@ -162,6 +162,20 @@ export namespace main {
 	        this.version = source["version"];
 	    }
 	}
+	export class ZoneNick {
+	    name: string;
+	    nicks: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ZoneNick(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.nicks = source["nicks"];
+	    }
+	}
 	export class wailsClientEntry {
 	    name: string;
 	    version: string;

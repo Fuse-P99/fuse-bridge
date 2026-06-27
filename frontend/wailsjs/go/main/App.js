@@ -62,6 +62,10 @@ export function GetStatus() {
   return window['go']['main']['App']['GetStatus']();
 }
 
+export function GetZoneInfo() {
+  return window['go']['main']['App']['GetZoneInfo']();
+}
+
 export function GetZones() {
   return window['go']['main']['App']['GetZones']();
 }

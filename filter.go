@@ -20,6 +20,9 @@ var (
 	enteredZonePattern = regexp.MustCompile(`You have entered (.+)\.`)
 	// /loc output: "Your Location is <Y>, <X>, <Z>" (Y first, X second, Z elevation).
 	locPattern = regexp.MustCompile(`Your Location is ([-\d.]+), ([-\d.]+), ([-\d.]+)`)
+	// /who footer: "There are N players in <Zone>." — for a plain /who this names
+	// the player's current zone. ("EverQuest" means /who all, not a real zone.)
+	whoFooterZonePattern = regexp.MustCompile(`There (?:is|are) \d+ players? in (.+)\.`)
 	// Matches /who output lines: header, player entries (including LINKDEAD/AFK prefixes), and footer.
 	// Footer handles both "There are N players" and the single-player "There is 1 player".
 	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There (?:is|are) \d+ players? in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS|ROLEPLAY)\])`)
@@ -123,6 +126,21 @@ func ExtractLoc(line string) (y, x, z float64, ok bool) {
 func parseFloat(s string) float64 {
 	f, _ := strconv.ParseFloat(s, 64)
 	return f
+}
+
+// ExtractWhoZone returns the current zone from a /who footer line ("There are N
+// players in <Zone>."), or "" if the line isn't a footer or names "EverQuest"
+// (which indicates /who all rather than a single-zone /who).
+func ExtractWhoZone(line string) string {
+	m := whoFooterZonePattern.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return ""
+	}
+	zone := strings.TrimSpace(m[1])
+	if strings.EqualFold(zone, "EverQuest") {
+		return ""
+	}
+	return zone
 }
 
 // rewriteSelfGuildSay converts the player's own guild-say format into the

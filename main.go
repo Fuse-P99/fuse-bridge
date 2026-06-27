@@ -72,6 +72,12 @@ func main() {
 					UpdateLocalZone(currentCharName, zone)
 					SetCurrentZone(zone)
 				}
+				// A plain /who footer also reveals the player's current zone — useful
+				// when logging in already inside a zone (no "You have entered" line).
+				if zone := ExtractWhoZone(line); zone != "" {
+					UpdateLocalZone(currentCharName, zone)
+					SetCurrentZone(zone)
+				}
 				if y, x, z, ok := ExtractLoc(line); ok {
 					UpdatePosition(x, y, z)
 					if GetSettings().ShareMapPosition {

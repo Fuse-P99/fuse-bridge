@@ -1,12 +1,13 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
-  import { GetCurrentZone, GetPlayerPosition, GetGuildMapPositions, GetCharacterName } from '../../wailsjs/go/main/App'
-  import { resolveMapBase } from '../lib/zoneMaps.js'
+  import { GetCurrentZone, GetPlayerPosition, GetGuildMapPositions, GetCharacterName, GetZoneInfo } from '../../wailsjs/go/main/App'
+  import { resolveMapBase, normalizeZone } from '../lib/zoneMaps.js'
 
   let canvas, wrap
   let ctx
   let manifest = {}            // lowercaseKey -> { base, layers:[...] }
   let manifestBases = new Set() // lowercase keys
+  let zoneToBase = {}          // lower(zone display name) -> manifest base key
 
   let zoneName = ''            // current EQ zone (display name)
   let mapBase  = null          // resolved manifest base, or null
@@ -65,10 +66,28 @@
     } catch { manifest = {}; manifestBases = new Set() }
   }
 
+  // Build a zone-display-name -> map-base lookup from the server's eqzones data,
+  // matching each zone's long name and nicknames against the bundled map bases.
+  async function loadZoneIndex() {
+    try {
+      const zones = await GetZoneInfo() || []
+      const idx = {}
+      for (const z of zones) {
+        if (!z || !z.name) continue
+        const cands = [z.name, ...(z.nicks || [])]
+        for (const c of cands) {
+          const n = normalizeZone(c)
+          if (manifestBases.has(n)) { idx[z.name.toLowerCase()] = n; break }
+        }
+      }
+      zoneToBase = idx
+    } catch { zoneToBase = {} }
+  }
+
   async function loadZone(zone) {
     zoneName = zone
     layers = []; bounds = null; mapBase = null; trail = []; view0 = false
-    const key = resolveMapBase(zone, manifestBases)
+    const key = zoneToBase[zone.toLowerCase()] || resolveMapBase(zone, manifestBases)
     if (!key || !manifest[key]) { status = `No map bundled for "${zone}"`; draw(); return }
     mapBase = key
     const fileBase = manifest[key].base

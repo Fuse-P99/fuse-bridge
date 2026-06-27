@@ -72,6 +72,38 @@ func (s *Sender) SendMapLoc(toon string, pos PlayerPosition) {
 	}()
 }
 
+// ZoneNick pairs a zone's long name with its nicknames (mirrors the server type).
+type ZoneNick struct {
+	Name  string   `json:"name"`
+	Nicks []string `json:"nicks"`
+}
+
+// fetchZoneInfo returns every zone's long name + nicknames for map resolution.
+func fetchZoneInfo() ([]ZoneNick, error) {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	req, err := http.NewRequest(http.MethodGet, base+"/zoneinfo", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	var r struct {
+		Zones []ZoneNick `json:"zones"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return nil, err
+	}
+	return r.Zones, nil
+}
+
 // fetchMapPositions returns the live positions of guild members in the given zone.
 func fetchMapPositions(zone string) ([]MapPosition, error) {
 	if zone == "" {
