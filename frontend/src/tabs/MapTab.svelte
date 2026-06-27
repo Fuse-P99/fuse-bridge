@@ -33,9 +33,9 @@
   // The map geometry and the player's /loc data are not always expressed with the
   // same Y-axis convention, so keep the geometry transform separate from the
   // player marker transform.
-  const mapX = x => -x
+  const mapX = x => x
   const mapY = y => y
-  const playerX = x => -x
+  const playerX = x => x
   const playerY = y => -y
 
   function colorOf(r, g, b) { return `rgb(${r},${g},${b})` }
