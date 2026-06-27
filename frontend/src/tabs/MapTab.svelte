@@ -35,7 +35,7 @@
   // player marker transform.
   const mapX = x => x
   const mapY = y => y
-  const playerX = x => x
+  const playerX = x => -x
   const playerY = y => -y
 
   function colorOf(r, g, b) { return `rgb(${r},${g},${b})` }
