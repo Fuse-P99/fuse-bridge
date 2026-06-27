@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,6 +18,8 @@ var (
 	slainPattern      = regexp.MustCompile(` has been slain by .+!`)
 	slainMobExtractRE = regexp.MustCompile(`(?:\t|] )(.+?) has been slain by`)
 	enteredZonePattern = regexp.MustCompile(`You have entered (.+)\.`)
+	// /loc output: "Your Location is <Y>, <X>, <Z>" (Y first, X second, Z elevation).
+	locPattern = regexp.MustCompile(`Your Location is ([-\d.]+), ([-\d.]+), ([-\d.]+)`)
 	// Matches /who output lines: header, player entries (including LINKDEAD/AFK prefixes), and footer.
 	// Footer handles both "There are N players" and the single-player "There is 1 player".
 	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There (?:is|are) \d+ players? in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS|ROLEPLAY)\])`)
@@ -101,6 +104,25 @@ func ExtractZone(line string) string {
 		return ""
 	}
 	return m[1]
+}
+
+// ExtractLoc parses a "/loc" line ("Your Location is Y, X, Z") and returns the
+// EQ world coordinates (y, x, z) and ok=true on a match. Note the log order is
+// Y, X, Z; the returned values are reordered to (y, x, z).
+func ExtractLoc(line string) (y, x, z float64, ok bool) {
+	m := locPattern.FindStringSubmatch(line)
+	if len(m) < 4 {
+		return 0, 0, 0, false
+	}
+	y = parseFloat(m[1])
+	x = parseFloat(m[2])
+	z = parseFloat(m[3])
+	return y, x, z, true
+}
+
+func parseFloat(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
 }
 
 // rewriteSelfGuildSay converts the player's own guild-say format into the

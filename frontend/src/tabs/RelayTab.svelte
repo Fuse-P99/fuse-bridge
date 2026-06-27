@@ -15,6 +15,7 @@
     { key: 'who_output',          label: '/who output'                    },
     { key: 'character_locations', label: 'Character Locs'                 },
     { key: 'slain_messages',      label: 'Slain Messages'                 },
+    { key: 'share_map_position',  label: 'Share Map Position'             },
   ]
 
   onMount(async () => {

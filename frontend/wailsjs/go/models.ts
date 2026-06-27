@@ -34,6 +34,50 @@ export namespace main {
 	        this.count = source["count"];
 	    }
 	}
+	export class MapPosition {
+	    name: string;
+	    zone: string;
+	    x: number;
+	    y: number;
+	    z: number;
+	    heading: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MapPosition(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.zone = source["zone"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.heading = source["heading"];
+	    }
+	}
+	export class PlayerPosition {
+	    zone: string;
+	    x: number;
+	    y: number;
+	    z: number;
+	    heading: number;
+	    time: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PlayerPosition(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.zone = source["zone"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.heading = source["heading"];
+	        this.time = source["time"];
+	    }
+	}
 	export class Settings {
 	    guild_chat: boolean;
 	    guild_motd: boolean;
@@ -43,6 +87,7 @@ export namespace main {
 	    engage_messages: boolean;
 	    who_output: boolean;
 	    character_locations: boolean;
+	    share_map_position: boolean;
 	    exclude_bots: boolean;
 	    exclude_filtered: boolean;
 	    startup_configured: boolean;
@@ -64,6 +109,7 @@ export namespace main {
 	        this.engage_messages = source["engage_messages"];
 	        this.who_output = source["who_output"];
 	        this.character_locations = source["character_locations"];
+	        this.share_map_position = source["share_map_position"];
 	        this.exclude_bots = source["exclude_bots"];
 	        this.exclude_filtered = source["exclude_filtered"];
 	        this.startup_configured = source["startup_configured"];

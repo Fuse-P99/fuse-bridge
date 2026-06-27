@@ -70,6 +70,13 @@ func main() {
 				RecordLoginLine(line)
 				if zone := ExtractZone(line); zone != "" {
 					UpdateLocalZone(currentCharName, zone)
+					SetCurrentZone(zone)
+				}
+				if y, x, z, ok := ExtractLoc(line); ok {
+					UpdatePosition(x, y, z)
+					if GetSettings().ShareMapPosition {
+						sender.SendMapLoc(currentCharName, GetPosition())
+					}
 				}
 				if ShouldForward(line) {
 					line = rewriteSelfGuildSay(line)

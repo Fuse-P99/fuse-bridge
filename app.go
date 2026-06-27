@@ -357,6 +357,26 @@ func (a *App) GetSpellsForClass(class string) []SpellEntry {
 	return result.Spells
 }
 
+// --- Map ---
+
+// GetPlayerPosition returns the local player's most recent /loc reading.
+func (a *App) GetPlayerPosition() PlayerPosition { return GetPosition() }
+
+// GetCurrentZone returns the zone the local player is currently in.
+func (a *App) GetCurrentZone() string { return CurrentZone() }
+
+// GetCharacterName returns the local player's current character name.
+func (a *App) GetCharacterName() string { return currentCharName }
+
+// GetGuildMapPositions returns live positions of guild members in the given zone.
+func (a *App) GetGuildMapPositions(zone string) []MapPosition {
+	positions, err := fetchMapPositions(zone)
+	if err != nil {
+		return nil
+	}
+	return positions
+}
+
 // --- Zones ---
 
 // wailsZoneData mirrors zoneData with LastSeen as Unix milliseconds so the

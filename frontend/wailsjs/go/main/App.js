@@ -30,8 +30,24 @@ export function GetCharSpellbook(arg1) {
   return window['go']['main']['App']['GetCharSpellbook'](arg1);
 }
 
+export function GetCharacterName() {
+  return window['go']['main']['App']['GetCharacterName']();
+}
+
 export function GetClients() {
   return window['go']['main']['App']['GetClients']();
+}
+
+export function GetCurrentZone() {
+  return window['go']['main']['App']['GetCurrentZone']();
+}
+
+export function GetGuildMapPositions(arg1) {
+  return window['go']['main']['App']['GetGuildMapPositions'](arg1);
+}
+
+export function GetPlayerPosition() {
+  return window['go']['main']['App']['GetPlayerPosition']();
 }
 
 export function GetSettings() {

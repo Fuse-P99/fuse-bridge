@@ -16,7 +16,15 @@ export function GetCharNames(arg1:string,arg2:boolean,arg3:boolean):Promise<Arra
 
 export function GetCharSpellbook(arg1:string):Promise<Array<string>>;
 
+export function GetCharacterName():Promise<string>;
+
 export function GetClients():Promise<Array<main.wailsClientEntry>>;
+
+export function GetCurrentZone():Promise<string>;
+
+export function GetGuildMapPositions(arg1:string):Promise<Array<main.MapPosition>>;
+
+export function GetPlayerPosition():Promise<main.PlayerPosition>;
 
 export function GetSettings():Promise<main.Settings>;
 

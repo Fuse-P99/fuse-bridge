@@ -5,6 +5,7 @@
   import RelayTab      from './tabs/RelayTab.svelte'
   import CharactersTab from './tabs/CharactersTab.svelte'
   import ZonesTab      from './tabs/ZonesTab.svelte'
+  import MapTab        from './tabs/MapTab.svelte'
   import ClientsTab    from './tabs/ClientsTab.svelte'
 
   let activeTab = 'general'
@@ -16,6 +17,7 @@
     { id: 'relay',      label: 'Relay'      },
     { id: 'characters', label: 'Characters' },
     { id: 'zones',      label: 'Zones'      },
+    { id: 'map',        label: 'Map'        },
   ]
 
   onMount(async () => {
@@ -51,6 +53,8 @@
       <CharactersTab />
     {:else if activeTab === 'zones'}
       <ZonesTab />
+    {:else if activeTab === 'map'}
+      <MapTab />
     {:else if activeTab === 'clients'}
       <ClientsTab />
     {/if}

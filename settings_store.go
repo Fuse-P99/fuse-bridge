@@ -16,6 +16,7 @@ type Settings struct {
 	EngageMessages     bool   `json:"engage_messages"`
 	WhoOutput          bool   `json:"who_output"`
 	CharacterLocations bool   `json:"character_locations"`
+	ShareMapPosition   bool   `json:"share_map_position"`
 	ExcludeBots        bool   `json:"exclude_bots"`
 	ExcludeFiltered    bool   `json:"exclude_filtered"`
 	StartupConfigured  bool   `json:"startup_configured"`
@@ -47,6 +48,7 @@ func defaultSettings() Settings {
 		EngageMessages:     true,
 		WhoOutput:          true,
 		CharacterLocations: true,
+		ShareMapPosition:   true,
 		SlainMessages:      true,
 		ExcludeBots:        true,
 		ExcludeFiltered:    true,
