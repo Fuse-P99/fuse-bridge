@@ -30,9 +30,10 @@
   let justLoaded = false
   let pollTimer, drawReq
 
-  // EQ world -> base screen space (North up, East right): bx = -X, by = -Y.
+  // EQ /loc and the bundled map files use opposite Y directions, so we keep the
+  // X axis inverted for east/west while leaving Y as-is for north/south.
   const bX = x => -x
-  const bY = y => -y
+  const bY = y => y
 
   function colorOf(r, g, b) { return `rgb(${r},${g},${b})` }
 
