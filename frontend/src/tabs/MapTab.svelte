@@ -34,7 +34,7 @@
   // same Y-axis convention, so keep the geometry transform separate from the
   // player marker transform.
   const mapX = x => -x
-  const mapY = y => -y
+  const mapY = y => y
   const playerX = x => -x
   const playerY = y => -y
 
