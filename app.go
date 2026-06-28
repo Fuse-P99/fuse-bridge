@@ -215,6 +215,12 @@ func (a *App) GetCharContent(name string) string {
 	return buildCharContent(name, GetSettings().EQDirectory)
 }
 
+// GetCharInfos returns level+class for the given character names (keyed by
+// lowercased name), for the Characters list display.
+func (a *App) GetCharInfos(names []string) map[string]CharInfo {
+	return fetchCharInfos(names)
+}
+
 type InventoryItem struct {
 	Location string `json:"location"`
 	Name     string `json:"name"`

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,45 @@ import (
 	"sync"
 	"time"
 )
+
+// CharInfo is a character's level and class, fetched from the server for list display.
+type CharInfo struct {
+	Level int    `json:"level"`
+	Class string `json:"class"`
+}
+
+// fetchCharInfos returns level+class for the given character names (keyed by
+// lowercased name). Names with no server-side data are omitted.
+func fetchCharInfos(names []string) map[string]CharInfo {
+	out := map[string]CharInfo{}
+	if len(names) == 0 {
+		return out
+	}
+	base := strings.TrimSuffix(serverURL, "/submit")
+	body, _ := json.Marshal(map[string][]string{"names": names})
+	req, err := http.NewRequest(http.MethodPost, base+"/charinfos", bytes.NewReader(body))
+	if err != nil {
+		return out
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return out
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return out
+	}
+	var r struct {
+		Infos map[string]CharInfo `json:"infos"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&r) == nil && r.Infos != nil {
+		return r.Infos
+	}
+	return out
+}
 
 // botToons holds the lowercase names of toons belonging to the fusebot member.
 var (

@@ -3,10 +3,11 @@
   import {
     GetCharNames, GetCharContent, GetCharInventory,
     GetCharSpellbook, GetCharClassWithInference, GetSpellsForClass,
-    GetSettings, SaveSettings,
+    GetCharInfos, GetSettings, SaveSettings,
     IsFilteredToon, ToggleFilteredToon
   } from '../../wailsjs/go/main/App'
   import { scale } from '../lib/scale.js'
+  import { classAbbr } from '../lib/classAbbr.js'
 
   let chars           = []   // CharEntry[]
   let selected        = ''
@@ -15,6 +16,7 @@
   let query           = ''
   let excludeBots     = true
   let excludeFiltered = true
+  let charInfos       = {}   // lower(name) -> { level, class }
   let matchOffsets    = []
   let matchIdx        = 0
   let detailEl
@@ -50,6 +52,24 @@
       inventoryItems = []
       clearState()
     }
+    // Fetch level/class for any names not already cached (each name fetched once).
+    const missing = chars.map(c => c.name).filter(n => !(n.toLowerCase() in charInfos))
+    if (missing.length) {
+      const got = await GetCharInfos(missing) || {}
+      const merged = { ...charInfos }
+      for (const n of missing) merged[n.toLowerCase()] = got[n.toLowerCase()] || { level: 0, class: '' }
+      charInfos = merged
+    }
+  }
+
+  // meta string ("60 ENC") for a character; '' when class is unknown. infos is
+  // passed explicitly so Svelte re-renders the list when the cache updates.
+  function charMeta(name, infos) {
+    const ci = infos[name.toLowerCase()]
+    if (!ci || !ci.class) return ''
+    const ab = classAbbr(ci.class)
+    if (!ab) return ''
+    return ci.level > 0 ? `${ci.level} ${ab}` : ab
   }
 
   function clearState() {
@@ -316,6 +336,7 @@
   <div class="split">
     <div class="list">
       {#each chars as entry}
+        {@const meta = charMeta(entry.name, charInfos)}
         <div
           class="char-item"
           class:sel={entry.name === selected}
@@ -325,7 +346,8 @@
           on:keydown={e => e.key === 'Enter' && selectChar(entry.name)}
           on:contextmenu={e => onRightClick(e, entry.name)}
         >
-          {entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}
+          <span class="char-name">{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}</span>
+          {#if meta}<span class="char-meta">{meta}</span>{/if}
         </div>
       {:else}
         <div class="empty">No characters</div>
@@ -535,9 +557,12 @@
   .char-item {
     padding:6px 12px; cursor:pointer; font-size:12px;
     color:var(--text-secondary); transition:background 0.1s, color 0.1s;
+    display:flex; align-items:center; gap:6px;
   }
   .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); }
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
+  .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .char-meta { margin-left:auto; color:var(--text-muted); font-size:11px; white-space:nowrap; }
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
 
   /* status dots — bot (blue) and filtered (yellow) */

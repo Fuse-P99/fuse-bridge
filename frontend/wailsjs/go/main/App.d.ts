@@ -10,6 +10,8 @@ export function GetCharClassWithInference(arg1:string,arg2:Array<string>):Promis
 
 export function GetCharContent(arg1:string):Promise<string>;
 
+export function GetCharInfos(arg1:Array<string>):Promise<Record<string, main.CharInfo>>;
+
 export function GetCharInventory(arg1:string):Promise<Array<main.InventoryItem>>;
 
 export function GetCharNames(arg1:string,arg2:boolean,arg3:boolean):Promise<Array<main.CharEntry>>;

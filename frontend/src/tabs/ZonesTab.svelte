@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte'
   import { GetZones, GetToonIdentities } from '../../wailsjs/go/main/App'
+  import { classAbbr } from '../lib/classAbbr.js'
 
   let zones        = []
   let selectedZone = ''
@@ -228,7 +229,7 @@
               {#if expandedClasses.has(g.name + '::' + cl.name)}
                 {#each cl.members as m (m.name)}
                   <div class="row name-row">
-                    <span>{@html hl(m.name, query)}</span>
+                    <span>{@html hl(m.name, query)}{#if classAbbr(cl.name)} - {m.level} {classAbbr(cl.name)}{/if}</span>
                     {#if g.name === 'Fuse' && identityFor(m.name)}<span class="discord">{identityFor(m.name)}</span>{/if}
                   </div>
                 {/each}

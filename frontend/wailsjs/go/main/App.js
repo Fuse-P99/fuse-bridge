@@ -18,6 +18,10 @@ export function GetCharContent(arg1) {
   return window['go']['main']['App']['GetCharContent'](arg1);
 }
 
+export function GetCharInfos(arg1) {
+  return window['go']['main']['App']['GetCharInfos'](arg1);
+}
+
 export function GetCharInventory(arg1) {
   return window['go']['main']['App']['GetCharInventory'](arg1);
 }
