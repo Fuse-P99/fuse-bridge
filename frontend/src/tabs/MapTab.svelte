@@ -294,13 +294,17 @@
       ctx.stroke()
     }
 
-    // player dot + leading direction line
+    // player dot + leading direction line + name (always labeled)
     if (havePos) {
       const x = sx(playerX(pos.x)), y = sy(playerY(pos.y))
       drawLead(x, y, '', '#ffd25a')
       ctx.fillStyle = '#ffd25a'
       ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill()
       ctx.strokeStyle = '#1a1200'; ctx.lineWidth = 1; ctx.stroke()
+      ctx.fillStyle = '#ffe9a8'
+      ctx.font = '10px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(charName || 'You', x, y - 9)
     }
   }
 
@@ -333,12 +337,27 @@
   }
   function onMouseUp() { dragging = false }
 
-  function recenter() { follow = true; if (!havePos) fitView(); requestDraw() }
+  // Follow: center on the player and zoom so ~500 loc units are visible in every
+  // direction (the smaller canvas half-dimension maps to 500 world units).
+  const FOLLOW_RADIUS = 500
+  function recenter() {
+    follow = true
+    if (havePos && canvas) {
+      const half = Math.min(canvas.width, canvas.height) / 2
+      if (half > 0) scale = half / FOLLOW_RADIUS
+    } else if (!havePos) {
+      fitView()
+    }
+    requestDraw()
+  }
   function resetmap() { follow = false; fitView()}
 
   // ── polling ──────────────────────────────────────────────────────────────
   async function poll() {
     try {
+      // The character name may not be known at mount (log not yet identified);
+      // keep trying so the local player's own server position gets filtered out.
+      if (!charName) charName = (await GetCharacterName().catch(() => '')) || ''
       const z = await GetCurrentZone()
       if (z && z !== zoneName) await loadZone(z)
       const p = await GetPlayerPosition()
@@ -407,8 +426,10 @@
     {#if layers.length > 1}<span class="layers">{layers.length} layers</span>{/if}
     <button class="btn" class:active={follow} on:click={recenter} title="Center on you">Follow</button>
     <button class="btn" class:active={reset} on:click={resetmap} title="Reset map view">Reset</button>
-    <label class="chk"><input type="checkbox" checked={showTrail} on:change={toggleTrail} /> Show Trail</label>
-    <button class="btn" on:click={resetTrail} title="Clear your movement trail">Reset Trail</button>
+    <div class="bar-right">
+      <label class="chk"><input type="checkbox" checked={showTrail} on:change={toggleTrail} /> Show Trail</label>
+      <button class="btn" on:click={resetTrail} title="Clear your movement trail">Reset Trail</button>
+    </div>
   </div>
   <div class="canvas-wrap" bind:this={wrap}>
     {#if status}<div class="status">{status}</div>{/if}
@@ -440,6 +461,7 @@
   .btn.active { color:var(--accent); border-color:var(--accent-dim); }
   .chk { display:flex; align-items:center; gap:4px; color:var(--text-secondary); font-size:11px; cursor:pointer; }
   .chk input { accent-color:var(--accent); }
+  .bar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
   .canvas-wrap { position:relative; flex:1; overflow:hidden; }
   canvas { display:block; cursor:grab; }
   canvas:active { cursor:grabbing; }
