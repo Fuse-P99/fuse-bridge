@@ -62,6 +62,10 @@ export function GetStatus() {
   return window['go']['main']['App']['GetStatus']();
 }
 
+export function GetToonIdentities() {
+  return window['go']['main']['App']['GetToonIdentities']();
+}
+
 export function GetZoneInfo() {
   return window['go']['main']['App']['GetZoneInfo']();
 }

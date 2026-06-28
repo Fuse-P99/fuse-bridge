@@ -50,6 +50,33 @@ func fetchZoneSnoop() ([]zoneData, error) {
 	return zr.Zones, nil
 }
 
+// fetchToonIdentities returns a map of lowercased toon name → Discord identity,
+// used by the Zones tab to label Fuse members.
+func fetchToonIdentities() (map[string]string, error) {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	req, err := http.NewRequest(http.MethodGet, base+"/toonidentities", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	var r struct {
+		Identities map[string]string `json:"identities"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return nil, err
+	}
+	return r.Identities, nil
+}
+
 func buildZoneContent(zone zoneData) string {
 	type gEntry struct {
 		total   int

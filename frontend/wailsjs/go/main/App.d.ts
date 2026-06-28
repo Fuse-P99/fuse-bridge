@@ -32,6 +32,8 @@ export function GetSpellsForClass(arg1:string):Promise<Array<main.SpellEntry>>;
 
 export function GetStatus():Promise<main.StatusSnapshot>;
 
+export function GetToonIdentities():Promise<Record<string, string>>;
+
 export function GetZoneInfo():Promise<Array<main.ZoneNick>>;
 
 export function GetZones():Promise<Array<main.wailsZoneData>>;

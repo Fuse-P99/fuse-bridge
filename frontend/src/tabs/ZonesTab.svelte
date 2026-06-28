@@ -1,11 +1,16 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte'
-  import { GetZones } from '../../wailsjs/go/main/App'
+  import { GetZones, GetToonIdentities } from '../../wailsjs/go/main/App'
 
   let zones        = []
   let selectedZone = ''
   let error        = ''
   let interval
+  let identities   = {} // lower(toon name) -> Discord identity (Fuse members)
+
+  function identityFor(name) {
+    return identities[(name || '').toLowerCase()] || ''
+  }
 
   // search
   let query       = ''
@@ -132,7 +137,11 @@
     catch (e) { error = String(e) }
   }
 
-  onMount(async () => { await load(); interval = setInterval(load, 10000) })
+  onMount(async () => {
+    identities = await GetToonIdentities().catch(() => ({})) || {}
+    await load()
+    interval = setInterval(load, 10000)
+  })
   onDestroy(() => clearInterval(interval))
 
   // Order the zone list by most-recent /who first (stable: name breaks ties),
@@ -218,7 +227,10 @@
               </div>
               {#if expandedClasses.has(g.name + '::' + cl.name)}
                 {#each cl.members as m (m.name)}
-                  <div class="row name-row">{@html hl(m.name, query)}</div>
+                  <div class="row name-row">
+                    <span>{@html hl(m.name, query)}</span>
+                    {#if g.name === 'Fuse' && identityFor(m.name)}<span class="discord">{identityFor(m.name)}</span>{/if}
+                  </div>
                 {/each}
               {/if}
             {/each}
@@ -230,7 +242,10 @@
               </div>
               {#if expandedClasses.has(g.name + '::__rp')}
                 {#each g.roleplay as m (m.name)}
-                  <div class="row name-row">{@html hl(m.name, query)}</div>
+                  <div class="row name-row">
+                    <span>{@html hl(m.name, query)}</span>
+                    {#if g.name === 'Fuse' && identityFor(m.name)}<span class="discord">{identityFor(m.name)}</span>{/if}
+                  </div>
                 {/each}
               {/if}
             {/if}
@@ -328,7 +343,8 @@
   .caret { width:11px; color:var(--text-muted); font-size:10px; flex-shrink:0; }
   .g-name { color:var(--accent); font-weight:600; }
   .c-name { color:var(--text-secondary); }
-  .name-row { padding-left:34px; color:var(--text-secondary); }
+  .name-row { padding-left:34px; color:var(--text-secondary); display:flex; align-items:center; gap:8px; }
+  .discord { margin-left:auto; color:var(--text-muted); font-size:11px; font-style:italic; white-space:nowrap; }
   .count { color:var(--text-muted); font-size:11px; }
   .muted { color:var(--text-muted); font-style:italic; }
 

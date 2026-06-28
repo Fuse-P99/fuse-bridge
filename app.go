@@ -425,6 +425,16 @@ func (a *App) GetZones() ([]wailsZoneData, error) {
 	return out, nil
 }
 
+// GetToonIdentities returns a map of toon name (lowercased) → Discord identity,
+// for labeling Fuse members in the Zones tab.
+func (a *App) GetToonIdentities() map[string]string {
+	identities, err := fetchToonIdentities()
+	if err != nil {
+		return map[string]string{}
+	}
+	return identities
+}
+
 // --- Clients (admin) ---
 
 // wailsClientEntry mirrors adminClientEntry with LastSeen as Unix milliseconds.
