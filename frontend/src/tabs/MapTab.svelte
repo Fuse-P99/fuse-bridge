@@ -1,3 +1,17 @@
+<script context="module">
+  // State that must survive leaving/re-entering the Map tab. The component
+  // unmounts when you switch tabs; module-level state persists. Only one MapTab
+  // instance exists at a time.
+  let mTrail = []        // local player's trail: [{bx,by}] in player-screen space
+  let mTrailZone = ''    // zone the trail belongs to; cleared when the zone changes
+  let mShowTrail = false // "Show Trail" toggle, default off
+  // Movement tracking for leading direction lines. key '' = local player, else a
+  // guildmate name. value: {x,y,dirx,diry,movedAt} where dir is a screen-space unit.
+  let mMove = {}
+
+  const LEAD_GRACE = 2500 // ms after the last move to keep showing the leading line
+</script>
+
 <script>
   import { onMount, onDestroy, tick } from 'svelte'
   import { GetCurrentZone, GetPlayerPosition, GetGuildMapPositions, GetCharacterName, GetZoneInfo } from '../../wailsjs/go/main/App'
@@ -19,7 +33,7 @@
   let havePos = false
   let others = []              // guildmates [{name,x,y,z,heading}]
   let charName = ''
-  let trail = []               // recent base coords [{bx,by}]
+  let showTrail = mShowTrail   // local copy of the persisted toggle
 
   // viewport: screen = base*scale + offset
   let scale = 1, offsetX = 0, offsetY = 0
@@ -38,6 +52,37 @@
   const mapY = y => y
   const playerX = x => -x
   const playerY = y => -y
+
+  // Record movement for an entity (key '' = local player) and derive a screen-space
+  // heading from the last two *distinct* locs. The dot is plotted with playerX/playerY
+  // (which negate), so the on-screen movement vector is normalize(-dx, -dy).
+  function setMove(key, x, y) {
+    const prev = mMove[key]
+    if (prev && (prev.x !== x || prev.y !== y)) {
+      const dx = -(x - prev.x), dy = -(y - prev.y)
+      const len = Math.hypot(dx, dy)
+      if (len > 0) {
+        mMove[key] = { x, y, dirx: dx / len, diry: dy / len, movedAt: Date.now() }
+        return
+      }
+    }
+    // First sighting or no movement: keep prior direction, refresh position only.
+    mMove[key] = { x, y, dirx: prev?.dirx ?? 0, diry: prev?.diry ?? 0, movedAt: prev?.movedAt ?? 0 }
+  }
+
+  // Draw a leading direction line if the entity moved within LEAD_GRACE. A
+  // stationary entity (last two locs identical) shows no leading line.
+  function drawLead(px, py, key, color) {
+    const m = mMove[key]
+    if (!m || !m.movedAt || (m.dirx === 0 && m.diry === 0)) return
+    if (Date.now() - m.movedAt > LEAD_GRACE) return
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + m.dirx * 14, py + m.diry * 14); ctx.stroke()
+  }
+
+  function toggleTrail(e) { showTrail = e.target.checked; mShowTrail = showTrail; requestDraw() }
+  function resetTrail() { mTrail = []; requestDraw() }
 
   function colorOf(r, g, b) {
     const isBlack = r === 0 && g === 0 && b === 0
@@ -108,7 +153,10 @@
 
   async function loadZone(zone) {
     zoneName = zone
-    layers = []; bounds = null; mapBase = null; trail = []; view0 = false
+    // Clear the trail only when the actual zone changes — not when the component
+    // remounts (tab switch) for the same zone.
+    if (zone !== mTrailZone) { mTrail = []; mTrailZone = zone }
+    layers = []; bounds = null; mapBase = null; view0 = false
     const key = zoneToBase[zone.toLowerCase()] || resolveMapBase(zone, manifestBases)
     if (!key || !manifest[key]) { status = `No map bundled for "${zone}"`; draw(); return }
     mapBase = key
@@ -226,35 +274,30 @@
     for (const o of others) {
       if (charName && o.name && o.name.toLowerCase() === charName.toLowerCase()) continue
       const x = sx(playerX(o.x)), y = sy(playerY(o.y))
+      drawLead(x, y, o.name, '#33d6ff')  // leading direction line (no trail for network users)
       ctx.fillStyle = '#33d6ff'
       ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill()
       ctx.fillStyle = '#bfefff'
       ctx.fillText(o.name || '', x, y - 7)
     }
 
-    // player trail
-    if (trail.length > 1) {
+    // player trail (local only; persists across tab switches until zone change/reset)
+    if (showTrail && mTrail.length > 1) {
       ctx.strokeStyle = 'rgba(255,210,90,0.5)'
       ctx.lineWidth = 2
       ctx.beginPath()
-      for (let i = 0; i < trail.length; i++) {
-        const p = trail[i]
+      for (let i = 0; i < mTrail.length; i++) {
+        const p = mTrail[i]
         const X = sx(p.bx), Y = sy(p.by)
         i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)
       }
       ctx.stroke()
     }
 
-    // player dot + heading
+    // player dot + leading direction line
     if (havePos) {
       const x = sx(playerX(pos.x)), y = sy(playerY(pos.y))
-      if (pos.heading >= 0) {
-        const a = pos.heading * Math.PI / 180  // 0=N(up), CW
-        const hx = Math.sin(a), hy = -Math.cos(a)
-        ctx.strokeStyle = '#ffd25a'
-        ctx.lineWidth = 2
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + hx * 14, y + hy * 14); ctx.stroke()
-      }
+      drawLead(x, y, '', '#ffd25a')
       ctx.fillStyle = '#ffd25a'
       ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill()
       ctx.strokeStyle = '#1a1200'; ctx.lineWidth = 1; ctx.stroke()
@@ -302,13 +345,26 @@
       if (p && p.time) {
         const changed = !pos || p.time !== pos.time
         pos = p; havePos = true
-        if (changed && p.zone === zoneName) {
-          trail.push({ bx: playerX(p.x), by: playerY(p.y) })
-          if (trail.length > 60) trail.shift()
+        if (p.zone === zoneName) {
+          setMove('', p.x, p.y)
+          if (changed) {
+            mTrail.push({ bx: playerX(p.x), by: playerY(p.y) })
+            if (mTrail.length > 200) mTrail.shift()
+          }
         }
       }
       if (mapBase && zoneName) {
         others = await GetGuildMapPositions(zoneName) || []
+        const present = new Set()
+        for (const o of others) {
+          if (charName && o.name && o.name.toLowerCase() === charName.toLowerCase()) continue
+          present.add(o.name)
+          setMove(o.name, o.x, o.y)
+        }
+        // Forget movement state for guildmates no longer in the zone.
+        for (const k of Object.keys(mMove)) {
+          if (k !== '' && !present.has(k)) delete mMove[k]
+        }
       }
       requestDraw()
     } catch { /* ignore poll errors */ }
@@ -351,6 +407,8 @@
     {#if layers.length > 1}<span class="layers">{layers.length} layers</span>{/if}
     <button class="btn" class:active={follow} on:click={recenter} title="Center on you">Follow</button>
     <button class="btn" class:active={reset} on:click={resetmap} title="Reset map view">Reset</button>
+    <label class="chk"><input type="checkbox" checked={showTrail} on:change={toggleTrail} /> Show Trail</label>
+    <button class="btn" on:click={resetTrail} title="Clear your movement trail">Reset Trail</button>
   </div>
   <div class="canvas-wrap" bind:this={wrap}>
     {#if status}<div class="status">{status}</div>{/if}
@@ -380,6 +438,8 @@
     color:var(--text-secondary); cursor:pointer; font-size:11px; padding:2px 8px;
   }
   .btn.active { color:var(--accent); border-color:var(--accent-dim); }
+  .chk { display:flex; align-items:center; gap:4px; color:var(--text-secondary); font-size:11px; cursor:pointer; }
+  .chk input { accent-color:var(--accent); }
   .canvas-wrap { position:relative; flex:1; overflow:hidden; }
   canvas { display:block; cursor:grab; }
   canvas:active { cursor:grabbing; }
