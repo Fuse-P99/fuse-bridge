@@ -586,8 +586,8 @@
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
   .char-row { display:flex; align-items:center; gap:6px; }
   .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
-  .char-meta { margin-left:auto; color:var(--text-muted); font-size:11px; white-space:nowrap; color:var(--accent); }
-  .char-zone { color:var(--text-muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .char-meta { margin-left:auto; color:var(--text-muted); font-size:11px; white-space:nowrap; }
+  .char-zone { color:var(--text-muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--accent);}
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
 
   /* status dots — bot (blue) and filtered (yellow) */
