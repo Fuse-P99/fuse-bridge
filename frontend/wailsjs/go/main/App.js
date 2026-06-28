@@ -90,6 +90,10 @@ export function IsFilteredToon(arg1) {
   return window['go']['main']['App']['IsFilteredToon'](arg1);
 }
 
+export function RefreshCharInfos(arg1) {
+  return window['go']['main']['App']['RefreshCharInfos'](arg1);
+}
+
 export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }

@@ -46,6 +46,8 @@ export function IsBotToon(arg1:string):Promise<boolean>;
 
 export function IsFilteredToon(arg1:string):Promise<boolean>;
 
+export function RefreshCharInfos(arg1:Array<string>):Promise<Record<string, main.CharInfo>>;
+
 export function SaveSettings(arg1:main.Settings):Promise<void>;
 
 export function SetAutoStart(arg1:boolean):Promise<void>;

@@ -215,10 +215,18 @@ func (a *App) GetCharContent(name string) string {
 	return buildCharContent(name, GetSettings().EQDirectory)
 }
 
-// GetCharInfos returns level+class for the given character names (keyed by
-// lowercased name), for the Characters list display.
+// GetCharInfos returns cached level/class for the given names instantly (from the
+// local %APPDATA% cache; works offline). Use RefreshCharInfos to pull fresh data.
 func (a *App) GetCharInfos(names []string) map[string]CharInfo {
-	return fetchCharInfos(names)
+	return cachedCharInfos(names)
+}
+
+// RefreshCharInfos pulls fresh level/class from the server, merges it into the
+// local cache (persisting it), and returns the updated values for names. Falls
+// back to whatever is cached if the server is unreachable.
+func (a *App) RefreshCharInfos(names []string) map[string]CharInfo {
+	mergeCharInfos(fetchCharInfos(names))
+	return cachedCharInfos(names)
 }
 
 type InventoryItem struct {

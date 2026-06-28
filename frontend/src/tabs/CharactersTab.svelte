@@ -3,7 +3,7 @@
   import {
     GetCharNames, GetCharContent, GetCharInventory,
     GetCharSpellbook, GetCharClassWithInference, GetSpellsForClass,
-    GetCharInfos, GetSettings, SaveSettings,
+    GetCharInfos, RefreshCharInfos, GetSettings, SaveSettings,
     IsFilteredToon, ToggleFilteredToon
   } from '../../wailsjs/go/main/App'
   import { scale } from '../lib/scale.js'
@@ -52,14 +52,27 @@
       inventoryItems = []
       clearState()
     }
-    // Fetch level/class for any names not already cached (each name fetched once).
-    const missing = chars.map(c => c.name).filter(n => !(n.toLowerCase() in charInfos))
-    if (missing.length) {
-      const got = await GetCharInfos(missing) || {}
-      const merged = { ...charInfos }
-      for (const n of missing) merged[n.toLowerCase()] = got[n.toLowerCase()] || { level: 0, class: '' }
-      charInfos = merged
+    await loadCharInfos(chars.map(c => c.name))
+  }
+
+  // Populate level/class for names not yet in this session's cache: show the
+  // local %APPDATA% cache instantly, then refresh from the server (which also
+  // updates the on-disk cache). Each name is resolved at most once per session.
+  async function loadCharInfos(names) {
+    const missing = names.filter(n => !(n.toLowerCase() in charInfos))
+    if (!missing.length) return
+    applyCharInfos(missing, await GetCharInfos(missing) || {})       // instant (cache)
+    applyCharInfos(missing, await RefreshCharInfos(missing) || {})   // fresh (server)
+  }
+
+  function applyCharInfos(names, got) {
+    const merged = { ...charInfos }
+    for (const n of names) {
+      const k = n.toLowerCase()
+      if (got[k]) merged[k] = got[k]
+      else if (!(k in merged)) merged[k] = { level: 0, class: '' } // mark attempted
     }
+    charInfos = merged
   }
 
   // meta string ("60 ENC") for a character; '' when class is unknown. infos is

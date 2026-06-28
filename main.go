@@ -12,6 +12,7 @@ func main() {
 	writeLog("FuseBridge starting, clientVersion=" + clientVersion)
 	currentSettings = LoadSettings()
 	LoadZones()
+	LoadCharCache()
 	loadFilteredToons()
 	LoadRaidMobs()
 	go fetchBotToons()
