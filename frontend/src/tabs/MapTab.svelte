@@ -13,7 +13,7 @@
   let mapBase  = null          // resolved manifest base, or null
   let layers   = []            // [{ z, lines:[{x1,y1,x2,y2,color}], points:[{x,y,color,label}] }]
   let bounds   = null          // { minX,maxX,minY,maxY }
-  let status   = 'Waiting for zone…'
+  let status   = 'Waiting for new zone or /who output...'
 
   let pos = null               // {x,y,z,heading,zone,time}
   let havePos = false
@@ -24,6 +24,7 @@
   // viewport: screen = base*scale + offset
   let scale = 1, offsetX = 0, offsetY = 0
   let follow = true
+  let reset = false
   let view0 = false            // whether an initial fit has been done for this zone
 
   let dragging = false, lastMX = 0, lastMY = 0
@@ -136,6 +137,7 @@
     bounds = { minX, maxX, minY, maxY }
     status = ''
     follow = false
+    reset = false
     view0 = false
     justLoaded = true
     fitView()
@@ -280,6 +282,7 @@
   function onMouseMove(e) {
     if (!dragging) return
     follow = false
+    reset = false
     offsetX += e.clientX - lastMX
     offsetY += e.clientY - lastMY
     lastMX = e.clientX; lastMY = e.clientY
@@ -288,6 +291,7 @@
   function onMouseUp() { dragging = false }
 
   function recenter() { follow = true; if (!havePos) fitView(); requestDraw() }
+  function resetmap() { follow = false; fitView()}
 
   // ── polling ──────────────────────────────────────────────────────────────
   async function poll() {
@@ -346,7 +350,7 @@
     <span class="zone">{zoneName || '—'}</span>
     {#if layers.length > 1}<span class="layers">{layers.length} layers</span>{/if}
     <button class="btn" class:active={follow} on:click={recenter} title="Center on you">Follow</button>
-    {#if !havePos}<span class="hint">Bind <code>/loc</code> to a movement key for live tracking</span>{/if}
+    <button class="btn" class:active={reset} on:click={resetmap} title="Reset map view">Reset</button>
   </div>
   <div class="canvas-wrap" bind:this={wrap}>
     {#if status}<div class="status">{status}</div>{/if}
