@@ -83,10 +83,12 @@
   function esc(t) {
     return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   }
-  function hl(text) {
+  // q is passed explicitly (not closed over) so Svelte tracks `query` as a
+  // dependency of each {@html hl(text, query)} and re-renders on every keystroke.
+  function hl(text, q) {
     const safe = esc(text)
-    if (!query) return safe
-    const q = query.toLowerCase()
+    if (!q) return safe
+    q = q.toLowerCase()
     const lower = text.toLowerCase()
     let out = '', last = 0
     for (let p = 0;;) {
@@ -204,19 +206,19 @@
         {#each model.guilds as g (g.name)}
           <div class="row guild-row" on:click={() => toggleGuild(g.name)}>
             <span class="caret">{collapsedGuilds.has(g.name) ? '▸' : '▾'}</span>
-            <span class="g-name">{@html hl(`<${g.name}>`)}</span>
+            <span class="g-name">{@html hl(`<${g.name}>`, query)}</span>
             <span class="count">({g.total})</span>
           </div>
           {#if !collapsedGuilds.has(g.name)}
             {#each g.classList as cl (cl.name)}
               <div class="row class-row" on:click={() => toggleClass(g.name + '::' + cl.name)}>
                 <span class="caret">{expandedClasses.has(g.name + '::' + cl.name) ? '▾' : '▸'}</span>
-                <span class="c-name">{@html hl(cl.name)}</span>
+                <span class="c-name">{@html hl(cl.name, query)}</span>
                 <span class="count">- {cl.members.length}</span>
               </div>
               {#if expandedClasses.has(g.name + '::' + cl.name)}
                 {#each cl.members as m (m.name)}
-                  <div class="row name-row">{@html hl(m.name)}</div>
+                  <div class="row name-row">{@html hl(m.name, query)}</div>
                 {/each}
               {/if}
             {/each}
@@ -228,7 +230,7 @@
               </div>
               {#if expandedClasses.has(g.name + '::__rp')}
                 {#each g.roleplay as m (m.name)}
-                  <div class="row name-row">{@html hl(m.name)}</div>
+                  <div class="row name-row">{@html hl(m.name, query)}</div>
                 {/each}
               {/if}
             {/if}
@@ -243,7 +245,7 @@
           </div>
           {#if expandedClasses.has('::__anon')}
             {#each model.anonymous as m (m.name)}
-              <div class="row name-row">{@html hl(m.name)}</div>
+              <div class="row name-row">{@html hl(m.name, query)}</div>
             {/each}
           {/if}
         {/if}
@@ -256,15 +258,15 @@
         {#each model.guilds as g (g.name)}
           {#each g.classList as cl (cl.name)}
             {#each cl.members as m (m.name)}
-              <div class="line">{@html hl(lineFor(m))}</div>
+              <div class="line">{@html hl(lineFor(m), query)}</div>
             {/each}
           {/each}
           {#each g.roleplay as m (m.name)}
-            <div class="line">{@html hl(lineFor(m))}</div>
+            <div class="line">{@html hl(lineFor(m), query)}</div>
           {/each}
         {/each}
         {#each model.anonymous as m (m.name)}
-          <div class="line">{@html hl(lineFor(m))}</div>
+          <div class="line">{@html hl(lineFor(m), query)}</div>
         {/each}
       </div>
     {:else}

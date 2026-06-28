@@ -196,6 +196,13 @@
     query    = e.target.value
     matchIdx = 0
     await loadChars(false)
+    // Auto-select the top result and jump to the match in the content pane.
+    if (query && chars.length) {
+      detailTab = 'all'
+      if (!chars.some(c => c.name === selected)) {
+        await selectChar(chars[0].name)
+      }
+    }
     rebuildHighlight()
     if (matchOffsets.length) scrollToCurrent()
   }
