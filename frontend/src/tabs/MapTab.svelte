@@ -337,9 +337,9 @@
   }
   function onMouseUp() { dragging = false }
 
-  // Follow: center on the player and zoom so ~500 loc units are visible in every
-  // direction (the smaller canvas half-dimension maps to 500 world units).
-  const FOLLOW_RADIUS = 500
+  // Follow: center on the player and zoom so ~1000 loc units are visible in every
+  // direction (the smaller canvas half-dimension maps to 1000 world units).
+  const FOLLOW_RADIUS = 1000
   function recenter() {
     follow = true
     if (havePos && canvas) {
