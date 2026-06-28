@@ -7,10 +7,10 @@
   import ZonesTab      from './tabs/ZonesTab.svelte'
   import MapTab        from './tabs/MapTab.svelte'
   import ClientsTab    from './tabs/ClientsTab.svelte'
+  import { scale }     from './lib/scale.js'
 
   let activeTab = 'general'
   let isAdmin   = false
-  let scale     = 1.2
 
   const baseTabs = [
     { id: 'general',    label: 'General'    },
@@ -27,7 +27,7 @@
   $: tabs = isAdmin ? [...baseTabs, { id: 'clients', label: 'Clients' }] : baseTabs
 </script>
 
-<div class="shell" style="zoom:{scale}; height:calc(100vh / {scale})">
+<div class="shell" style="zoom:{$scale}; height:calc(100vh / {$scale})">
   <nav class="tab-bar">
     {#each tabs as t}
       <button
@@ -38,9 +38,9 @@
     {/each}
 
     <div class="size-btns">
-      <button class="size-btn size-s" class:active={scale === 1.0} on:click={() => scale = 1.0} title="Small">A</button>
-      <button class="size-btn size-m" class:active={scale === 1.2} on:click={() => scale = 1.2} title="Medium">A</button>
-      <button class="size-btn size-l" class:active={scale === 1.4} on:click={() => scale = 1.4} title="Large">A</button>
+      <button class="size-btn size-s" class:active={$scale === 1.0} on:click={() => $scale = 1.0} title="Small">A</button>
+      <button class="size-btn size-m" class:active={$scale === 1.2} on:click={() => $scale = 1.2} title="Medium">A</button>
+      <button class="size-btn size-l" class:active={$scale === 1.4} on:click={() => $scale = 1.4} title="Large">A</button>
     </div>
   </nav>
 

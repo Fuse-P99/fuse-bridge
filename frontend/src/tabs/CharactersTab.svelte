@@ -6,6 +6,7 @@
     GetSettings, SaveSettings,
     IsFilteredToon, ToggleFilteredToon
   } from '../../wailsjs/go/main/App'
+  import { scale } from '../lib/scale.js'
 
   let chars           = []   // CharEntry[]
   let selected        = ''
@@ -236,7 +237,9 @@
   async function onRightClick(e, name) {
     e.preventDefault()
     const filtered = await IsFilteredToon(name)
-    ctx = { visible: true, x: e.clientX, y: e.clientY, name, filtered }
+    // The menu lives inside .shell (CSS zoom:$scale), which scales its coordinate
+    // space — divide the viewport cursor coords by the zoom so it lands at the cursor.
+    ctx = { visible: true, x: e.clientX / $scale, y: e.clientY / $scale, name, filtered }
   }
 
   function closeCtx() { ctx = { ...ctx, visible: false } }
