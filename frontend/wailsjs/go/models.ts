@@ -144,6 +144,7 @@ export namespace main {
 	}
 	export class StatusSnapshot {
 	    eq_running: boolean;
+	    configured: boolean;
 	    log_file: string;
 	    connected: boolean;
 	    activity: string[];
@@ -156,6 +157,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.eq_running = source["eq_running"];
+	        this.configured = source["configured"];
 	        this.log_file = source["log_file"];
 	        this.connected = source["connected"];
 	        this.activity = source["activity"];

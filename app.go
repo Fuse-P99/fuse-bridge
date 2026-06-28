@@ -110,11 +110,12 @@ func startWails() {
 // --- Status ---
 
 type StatusSnapshot struct {
-	EQRunning bool     `json:"eq_running"`
-	LogFile   string   `json:"log_file"`
-	Connected bool     `json:"connected"`
-	Activity  []string `json:"activity"`
-	Version   string   `json:"version"`
+	EQRunning  bool     `json:"eq_running"`
+	Configured bool     `json:"configured"`
+	LogFile    string   `json:"log_file"`
+	Connected  bool     `json:"connected"`
+	Activity   []string `json:"activity"`
+	Version    string   `json:"version"`
 }
 
 func (a *App) GetStatus() StatusSnapshot {
@@ -124,12 +125,23 @@ func (a *App) GetStatus() StatusSnapshot {
 		rev[len(lines)-1-i] = l
 	}
 	return StatusSnapshot{
-		EQRunning: eq,
-		LogFile:   lf,
-		Connected: conn,
-		Activity:  rev,
-		Version:   clientVersion,
+		EQRunning:  eq,
+		Configured: lf != "" || eqLogsPresent(GetSettings().EQDirectory),
+		LogFile:    lf,
+		Connected:  conn,
+		Activity:   rev,
+		Version:    clientVersion,
 	}
+}
+
+// eqLogsPresent reports whether dir is a valid EQ install with at least one
+// log file — i.e. we've found the correct folder and identified EQ logs.
+func eqLogsPresent(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	matches, _ := filepath.Glob(filepath.Join(dir, "Logs", "eqlog_*.txt"))
+	return len(matches) > 0
 }
 
 // --- Settings ---

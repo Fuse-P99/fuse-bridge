@@ -32,14 +32,19 @@ func runTray(openSettings func()) {
 	defer ni.Dispose()
 	trayIcon = ni
 
-	if iconStartup != nil {
-		ni.SetIcon(iconStartup)
+	// Static icon + tooltip — the tray no longer reflects connection/EQ state.
+	icon := iconConnected
+	if icon == nil {
+		icon = iconStartup
 	}
-	ni.SetToolTip("Fuse Bridge — waiting for EverQuest...")
+	if icon != nil {
+		ni.SetIcon(icon)
+	}
+	ni.SetToolTip("Fuse Bridge")
 	ni.SetVisible(true)
 
 	settingsAction := walk.NewAction()
-	settingsAction.SetText("Settings")
+	settingsAction.SetText("Open")
 	settingsAction.Triggered().Attach(func() { openSettings() })
 	ni.ContextMenu().Actions().Add(settingsAction)
 	ni.ContextMenu().Actions().Add(walk.NewSeparatorAction())
@@ -59,27 +64,10 @@ func runTray(openSettings func()) {
 	mw.Run()
 }
 
-// SetTrayStatus updates the tray tooltip. Safe to call from any goroutine.
-func SetTrayStatus(status string) {
-	if trayOwner == nil || trayIcon == nil {
-		return
-	}
-	trayOwner.Synchronize(func() {
-		trayIcon.SetToolTip(status)
-	})
-}
+// SetTrayStatus is intentionally a no-op: the tray tooltip stays "Fuse Bridge"
+// regardless of EQ/connection state. Kept so existing callers still compile.
+func SetTrayStatus(status string) {}
 
-// SetTrayConnected switches the tray icon green (connected) or grey
-// (disconnected). Safe to call from any goroutine.
-func SetTrayConnected(connected bool) {
-	if trayOwner == nil || trayIcon == nil {
-		return
-	}
-	trayOwner.Synchronize(func() {
-		if connected && iconConnected != nil {
-			trayIcon.SetIcon(iconConnected)
-		} else if !connected && iconDisconnected != nil {
-			trayIcon.SetIcon(iconDisconnected)
-		}
-	})
-}
+// SetTrayConnected is intentionally a no-op: the tray icon is static and no
+// longer reflects connection state. Kept so existing callers still compile.
+func SetTrayConnected(connected bool) {}

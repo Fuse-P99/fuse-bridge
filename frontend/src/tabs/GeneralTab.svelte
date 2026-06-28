@@ -5,7 +5,7 @@
     SetAutoStart, BrowseEQDirectory
   } from '../../wailsjs/go/main/App'
 
-  let status   = { eq_running: false, log_file: '', connected: false, activity: [], version: '' }
+  let status   = { eq_running: false, configured: false, log_file: '', connected: false, activity: [], version: '' }
   let autoStart = false
   let eqDir    = ''
   let interval
@@ -47,10 +47,13 @@
       <div class="status-rows">
         <div class="status-row">
           <span class="label">EverQuest</span>
-          <span class="dot" class:green={status.eq_running} class:red={!status.eq_running}></span>
-          <span class="badge-text" class:green={status.eq_running} class:red={!status.eq_running}>
-            {status.eq_running ? 'Running' : 'Not detected'}
+          <span class="dot" class:green={status.configured} class:red={!status.configured}></span>
+          <span class="badge-text" class:green={status.configured} class:red={!status.configured}>
+            {status.configured ? 'Configured' : 'Not Found'}
           </span>
+          {#if !status.configured}
+            <span class="hint">Set EverQuest directory below…</span>
+          {/if}
         </div>
         <div class="status-row">
           <span class="label">Log File</span>
@@ -159,6 +162,7 @@
   .badge-text         { font-size: 12px; }
   .badge-text.green   { color: var(--success); }
   .badge-text.red     { color: var(--error); }
+  .hint { font-style: italic; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
 
   .sep { height: 1px; background: var(--border); margin: 10px 0; }
 
