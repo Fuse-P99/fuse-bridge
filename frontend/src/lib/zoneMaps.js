@@ -186,5 +186,15 @@ export function resolveMapBase(displayName, availableBases) {
   const normWithThe = lower.replace(/[^a-z0-9]/g, "");
   if (bases.has(normWithThe)) return normWithThe;
 
+  // 4. prefix fallback: a bundled base that is a prefix of the normalized zone
+  // name. Handles maps named by a short zone name and small spelling differences
+  // (e.g. "Kael Drakkal" -> "kaeldrakkal" -> "kael"). Longest match wins; min
+  // length 4 avoids spurious matches on very short bases.
+  let best = "";
+  for (const b of bases) {
+    if (b.length >= 4 && norm.startsWith(b) && b.length > best.length) best = b;
+  }
+  if (best) return best;
+
   return null;
 }

@@ -133,8 +133,9 @@
     return null
   }
 
-  // Build a zone-display-name -> map-base lookup from the server's eqzones data,
-  // matching each zone's long name and nicknames against the bundled map bases.
+  // Build a zone-display-name -> map-base lookup from the server's eqzones data.
+  // For each zone, find the bundled map base among its name+nicknames, then key
+  // that base under EVERY name/nickname so any in-game spelling resolves locally.
   async function loadZoneIndex() {
     try {
       const zones = await GetZoneInfo() || []
@@ -142,9 +143,18 @@
       for (const z of zones) {
         if (!z || !z.name) continue
         const cands = [z.name, ...(z.nicks || [])]
+        let base = null
         for (const c of cands) {
           const n = normalizeZone(c)
-          if (manifestBases.has(n)) { idx[z.name.toLowerCase()] = n; break }
+          if (manifestBases.has(n)) { base = n; break }
+        }
+        if (!base) continue
+        // Key by the normalized form of every name/nickname so any in-game
+        // spelling/spacing resolves (e.g. "Kael Drakkal" and "kael drakkel"
+        // both normalize to "kaeldrakkel"/"kaeldrakkal" forms consistently).
+        for (const c of cands) {
+          const nk = normalizeZone(c)
+          if (nk) idx[nk] = base
         }
       }
       zoneToBase = idx
@@ -157,7 +167,13 @@
     // remounts (tab switch) for the same zone.
     if (zone !== mTrailZone) { mTrail = []; mTrailZone = zone }
     layers = []; bounds = null; mapBase = null; view0 = false
-    const key = zoneToBase[zone.toLowerCase()] || resolveMapBase(zone, manifestBases)
+    let key = zoneToBase[normalizeZone(zone)] || resolveMapBase(zone, manifestBases)
+    if (!key || !manifest[key]) {
+      // Not in the local lookup — re-check the server's eqzones (picks up newly
+      // added zone names/nicknames without a client restart), then retry.
+      await loadZoneIndex()
+      key = zoneToBase[normalizeZone(zone)] || resolveMapBase(zone, manifestBases)
+    }
     if (!key || !manifest[key]) { status = `No map bundled for "${zone}"`; draw(); return }
     mapBase = key
     const fileBase = manifest[key].base
