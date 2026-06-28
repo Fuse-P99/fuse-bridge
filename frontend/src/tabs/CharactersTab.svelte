@@ -85,6 +85,12 @@
     return ci.level > 0 ? `${ci.level} ${ab}` : ab
   }
 
+  // Last-seen zone for a character; '' when unknown.
+  function charZone(name, infos) {
+    const ci = infos[name.toLowerCase()]
+    return ci && ci.zone ? ci.zone : ''
+  }
+
   function clearState() {
     charClass        = ''
     charClassLoading = false
@@ -350,6 +356,7 @@
     <div class="list">
       {#each chars as entry}
         {@const meta = charMeta(entry.name, charInfos)}
+        {@const zone = charZone(entry.name, charInfos)}
         <div
           class="char-item"
           class:sel={entry.name === selected}
@@ -359,8 +366,11 @@
           on:keydown={e => e.key === 'Enter' && selectChar(entry.name)}
           on:contextmenu={e => onRightClick(e, entry.name)}
         >
-          <span class="char-name">{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}</span>
-          {#if meta}<span class="char-meta">{meta}</span>{/if}
+          <div class="char-row">
+            <span class="char-name">{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}</span>
+            {#if meta}<span class="char-meta">{meta}</span>{/if}
+          </div>
+          {#if zone}<div class="char-zone">{zone}</div>{/if}
         </div>
       {:else}
         <div class="empty">No characters</div>
@@ -570,12 +580,14 @@
   .char-item {
     padding:6px 12px; cursor:pointer; font-size:12px;
     color:var(--text-secondary); transition:background 0.1s, color 0.1s;
-    display:flex; align-items:center; gap:6px;
+    display:flex; flex-direction:column; gap:2px;
   }
   .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); }
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
+  .char-row { display:flex; align-items:center; gap:6px; }
   .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .char-meta { margin-left:auto; color:var(--text-muted); font-size:11px; white-space:nowrap; }
+  .char-zone { color:var(--text-muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
 
   /* status dots — bot (blue) and filtered (yellow) */

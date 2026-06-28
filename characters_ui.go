@@ -13,10 +13,11 @@ import (
 	"time"
 )
 
-// CharInfo is a character's level and class, fetched from the server for list display.
+// CharInfo is a character's level, class, and last-seen zone for list display.
 type CharInfo struct {
 	Level int    `json:"level"`
 	Class string `json:"class"`
+	Zone  string `json:"zone"`
 }
 
 // fetchCharInfos returns level+class for the given character names (keyed by

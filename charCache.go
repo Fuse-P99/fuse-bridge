@@ -64,6 +64,9 @@ func mergeCharInfos(fresh map[string]CharInfo) {
 		if v.Class != "" {
 			nv.Class = v.Class
 		}
+		if v.Zone != "" {
+			nv.Zone = v.Zone
+		}
 		if !ok || nv != cur {
 			charCache[k] = nv
 			changed = true
@@ -76,13 +79,30 @@ func mergeCharInfos(fresh map[string]CharInfo) {
 }
 
 // cachedCharInfos returns cached entries for the given names (lowercased keys).
+// The local zonecache (fed by "You have entered" and the /who footer) is the
+// freshest source of a character's last-seen zone, so it overlays the cached
+// (server-sourced) zone.
 func cachedCharInfos(names []string) map[string]CharInfo {
 	out := map[string]CharInfo{}
+
+	localZones := make(map[string]string)
+	for toon, ze := range GetAllZones() {
+		if ze.Zone != "" {
+			localZones[strings.ToLower(toon)] = ze.Zone
+		}
+	}
+
 	charCacheMu.RLock()
 	defer charCacheMu.RUnlock()
 	for _, n := range names {
-		if ci, ok := charCache[strings.ToLower(n)]; ok {
-			out[strings.ToLower(n)] = ci
+		k := strings.ToLower(n)
+		ci, ok := charCache[k]
+		if lz, has := localZones[k]; has {
+			ci.Zone = lz
+			ok = true
+		}
+		if ok {
+			out[k] = ci
 		}
 	}
 	return out
