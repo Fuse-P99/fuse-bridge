@@ -367,7 +367,7 @@
           on:contextmenu={e => onRightClick(e, entry.name)}
         >
           <div class="char-row">
-            <span class="char-name" style="font-weight: 800">{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}</span>
+            <span class="char-name">{entry.name}{#if query && entry.match_count > 0}<span class="match-badge">({entry.match_count})</span>{/if}{#if !excludeBots && entry.is_bot}<span class="dot dot-bot" title="Bot"></span>{/if}{#if !excludeFiltered && entry.is_filtered}<span class="dot dot-filtered" title="Filtered"></span>{/if}</span>
             {#if meta}<span class="char-meta">{meta}</span>{/if}
           </div>
           {#if zone}<div class="char-zone">{zone}</div>{/if}
@@ -585,7 +585,7 @@
   .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); }
   .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
   .char-row { display:flex; align-items:center; gap:6px; }
-  .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
   .char-meta { margin-left:auto; color:var(--text-muted); font-size:11px; white-space:nowrap; }
   .char-zone { color:var(--text-muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
