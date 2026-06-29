@@ -9,10 +9,10 @@ import (
 )
 
 type adminClientEntry struct {
-	Name      string    `json:"name"`
-	Version   string    `json:"version"`
-	LastSeen  time.Time `json:"last_seen"`
-	Connected bool      `json:"connected"`
+	Name     string    `json:"name"`
+	Version  string    `json:"version"`
+	LastSeen time.Time `json:"last_seen"`
+	Status   string    `json:"status"` // "active" | "connected" | "offline"
 }
 
 func fetchClients() ([]adminClientEntry, error) {
@@ -47,8 +47,11 @@ func buildClientsText(clients []adminClientEntry) string {
 	var sb strings.Builder
 	for _, c := range clients {
 		check := "[ ] "
-		if c.Connected {
+		switch c.Status {
+		case "active":
 			check = "[✓] "
+		case "connected":
+			check = "[~] "
 		}
 		sb.WriteString(fmt.Sprintf("%s%-22s  %-10s  %s\r\n",
 			check, c.Name, c.Version, relativeTime(c.LastSeen)))

@@ -240,7 +240,7 @@ export namespace main {
 	    name: string;
 	    version: string;
 	    last_seen: number;
-	    connected: boolean;
+	    status: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new wailsClientEntry(source);
@@ -251,7 +251,7 @@ export namespace main {
 	        this.name = source["name"];
 	        this.version = source["version"];
 	        this.last_seen = source["last_seen"];
-	        this.connected = source["connected"];
+	        this.status = source["status"];
 	    }
 	}
 	export class zoneChar {

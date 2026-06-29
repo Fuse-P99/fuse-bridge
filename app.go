@@ -459,10 +459,10 @@ func (a *App) GetToonIdentities() map[string]string {
 
 // wailsClientEntry mirrors adminClientEntry with LastSeen as Unix milliseconds.
 type wailsClientEntry struct {
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	LastSeen  int64  `json:"last_seen"`
-	Connected bool   `json:"connected"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	LastSeen int64  `json:"last_seen"`
+	Status   string `json:"status"` // "active" | "connected" | "offline"
 }
 
 func (a *App) IsAdminMode() bool { return GetSettings().AdminMode }
@@ -475,10 +475,10 @@ func (a *App) GetClients() ([]wailsClientEntry, error) {
 	out := make([]wailsClientEntry, len(clients))
 	for i, c := range clients {
 		out[i] = wailsClientEntry{
-			Name:      c.Name,
-			Version:   c.Version,
-			LastSeen:  c.LastSeen.UnixMilli(),
-			Connected: c.Connected,
+			Name:     c.Name,
+			Version:  c.Version,
+			LastSeen: c.LastSeen.UnixMilli(),
+			Status:   c.Status,
 		}
 	}
 	return out, nil

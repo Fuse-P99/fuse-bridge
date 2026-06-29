@@ -42,9 +42,12 @@
       </thead>
       <tbody>
         {#each clients as c}
-          <tr class:connected={c.connected}>
+          <tr class:connected={c.status === 'active' || c.status === 'connected'}>
             <td class="c-status">
-              <span class="dot" class:on={c.connected}></span>
+              <span
+                class="dot {c.status}"
+                title={c.status === 'active' ? 'Relaying log data' : c.status === 'connected' ? 'Connected (no recent log data)' : 'Offline'}
+              ></span>
             </td>
             <td class="c-name">{c.name}</td>
             <td class="c-ver mono">{c.version}</td>
@@ -88,5 +91,7 @@
     display:inline-block; width:8px; height:8px; border-radius:50%;
     background:var(--text-muted);
   }
-  .dot.on { background:var(--success); box-shadow:0 0 5px var(--success); }
+  .dot.active    { background:var(--success); box-shadow:0 0 5px var(--success); }
+  .dot.connected { background:#e3a008; box-shadow:0 0 5px #e3a008; }
+  .dot.offline   { background:var(--text-muted); }
 </style>
