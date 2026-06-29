@@ -20,6 +20,19 @@ func main() {
 	wailsApp = NewApp()
 	go startWails()
 
+	// In admin mode, open the window on startup instead of starting tray-only —
+	// saves a step when testing.
+	if currentSettings.AdminMode {
+		go func() {
+			select {
+			case <-wailsReady:
+				wailsApp.Show()
+			case <-wailsFailed:
+			case <-time.After(15 * time.Second):
+			}
+		}()
+	}
+
 	// On first run, enable auto-start and record that we've done so.
 	if !currentSettings.StartupConfigured {
 		setAutoStart(true)
