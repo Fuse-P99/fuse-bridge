@@ -8,12 +8,20 @@ import (
 	"time"
 )
 
+// Tracker mirrors the server's structured tracker.
+type Tracker struct {
+	Name string `json:"name"`
+	Role string `json:"role"`
+	Ago  string `json:"ago"`
+}
+
 // TimerEntry mirrors the server's timer mob entry.
 type TimerEntry struct {
-	Name     string `json:"name"`
-	Status   string `json:"status"` // "popped" | "in_window" | "upcoming"
-	Detail   string `json:"detail"`
-	Trackers string `json:"trackers"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"` // "popped" | "in_window" | "upcoming"
+	Detail    string    `json:"detail"`
+	Remaining string    `json:"remaining"`
+	Trackers  []Tracker `json:"trackers"`
 }
 
 // TimersData mirrors the server's parsed timers board.

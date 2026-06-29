@@ -15,6 +15,19 @@
 
   const LABEL = { popped: 'Popped', in_window: 'In Window', upcoming: 'Upcoming' }
 
+  // Dot color: in-window mobs with no trackers go red, otherwise by status.
+  function dotClass(m) {
+    if (m.status === 'in_window' && !(m.trackers && m.trackers.length)) return 'untracked'
+    return m.status
+  }
+
+  function trackerLabel(t) {
+    let s = t.name || 'Unknown'
+    if (t.role) s += ` (${t.role})`
+    if (t.ago)  s += ` · ${t.ago}`
+    return s
+  }
+
   // Group mobs by status in a fixed priority order, preserving board order within.
   $: groups = (data && data.mobs)
     ? ['popped', 'in_window', 'upcoming']
@@ -46,11 +59,20 @@
         {#each grp.mobs as m}
           <div class="mob">
             <div class="mob-head">
-              <span class="dot {m.status}"></span>
+              <span class="dot {dotClass(m)}"></span>
               <span class="mob-name">{m.name}</span>
+              {#if m.status === 'in_window' && m.remaining}
+                <span class="remaining">{m.remaining} remaining</span>
+              {/if}
             </div>
-            {#if m.detail}<div class="mob-detail">{m.detail}</div>{/if}
-            {#if m.trackers}<div class="mob-trackers">{m.trackers}</div>{/if}
+            {#if m.status !== 'in_window' && m.detail}
+              <div class="mob-detail">{m.detail}</div>
+            {/if}
+            {#if m.trackers && m.trackers.length}
+              <div class="mob-trackers">
+                {#each m.trackers as t, i}{i > 0 ? ', ' : ''}{trackerLabel(t)}{/each}
+              </div>
+            {/if}
           </div>
         {/each}
       {/each}
@@ -89,9 +111,11 @@
   .mob:last-child { border-bottom:none; }
   .mob-head { display:flex; align-items:center; gap:7px; }
   .mob-name { color:var(--text-primary); font-size:13px; font-weight:600; }
+  .remaining { margin-left:auto; color:var(--text-secondary); font-size:12px; white-space:nowrap; }
   .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   .dot.popped    { background:#ff5555; }
   .dot.in_window { background:#3fb950; }
+  .dot.untracked { background:#ff5555; }
   .dot.upcoming  { background:var(--text-muted); }
 
   .mob-detail   { color:var(--text-secondary); font-size:12px; margin:1px 0 0 15px; }
