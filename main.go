@@ -20,18 +20,24 @@ func main() {
 	wailsApp = NewApp()
 	go startWails()
 
-	// In admin mode, open the window on startup instead of starting tray-only —
-	// saves a step when testing.
-	if currentSettings.AdminMode {
-		go func() {
-			select {
-			case <-wailsReady:
-				wailsApp.Show()
-			case <-wailsFailed:
-			case <-time.After(15 * time.Second):
-			}
-		}()
-	}
+	// On launch: wait for the UI, run the startup update check, and either show
+	// the "Upgrading…" screen (then restart) or open the window for everyone.
+	go func() {
+		select {
+		case <-wailsReady:
+		case <-wailsFailed:
+			return
+		case <-time.After(15 * time.Second):
+			return
+		}
+		if base, newVer, ok := updateInfo(); ok {
+			wailsApp.BeginUpgrade(newVer) // shows the upgrade screen + window
+			time.Sleep(3 * time.Second)   // give the user a moment to read it
+			applyUpdate(base)             // downloads, relaunches, and exits
+			return
+		}
+		wailsApp.Show()
+	}()
 
 	// On first run, enable auto-start and record that we've done so.
 	if !currentSettings.StartupConfigured {
@@ -40,6 +46,7 @@ func main() {
 		SaveSettings(currentSettings)
 	}
 
+	// Periodic update checks while running (every 6h); the initial check is above.
 	startUpdateChecker()
 
 	done := make(chan struct{})

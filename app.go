@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -54,6 +55,31 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	close(wailsReady)
 	writeLog("wailsReady closed")
+}
+
+var (
+	upgradingMu   sync.Mutex
+	upgradingFlag bool
+)
+
+// IsUpgrading reports whether a startup upgrade is in progress, so the frontend
+// can show the "Upgrading…" screen instead of the normal UI.
+func (a *App) IsUpgrading() bool {
+	upgradingMu.Lock()
+	defer upgradingMu.Unlock()
+	return upgradingFlag
+}
+
+// BeginUpgrade flips the app into the upgrading state, tells the frontend, and
+// brings the window forward so the user understands why it's about to restart.
+func (a *App) BeginUpgrade(newVersion string) {
+	upgradingMu.Lock()
+	upgradingFlag = true
+	upgradingMu.Unlock()
+	if a.ctx != nil {
+		wailsruntime.EventsEmit(a.ctx, "upgrading", newVersion)
+	}
+	a.Show()
 }
 
 // Show brings the Wails window to the foreground. Safe to call from any goroutine.

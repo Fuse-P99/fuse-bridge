@@ -83,6 +83,10 @@ func PollLinking(code string) (bool, error) {
 		s := GetSettings()
 		s.Token = out.Token
 		UpdateSettings(s)
+		// Re-announce identity with the new token so the server attributes this
+		// client to the member immediately (Clients tab shows the Discord name
+		// without waiting for the next log submission).
+		go identifyClient(GetSettings().EQDirectory)
 		return true, nil
 	}
 	return false, nil

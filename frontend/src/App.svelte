@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte'
-  import { IsAdminMode, IsLinked } from '../wailsjs/go/main/App'
+  import { IsAdminMode, IsLinked, IsUpgrading } from '../wailsjs/go/main/App'
+  import { EventsOn } from '../wailsjs/runtime/runtime'
   import { linked } from './lib/linkState.js'
   import GeneralTab    from './tabs/GeneralTab.svelte'
   import RelayTab      from './tabs/RelayTab.svelte'
@@ -13,6 +14,7 @@
 
   let activeTab = 'general'
   let isAdmin   = false
+  let upgrading = false
 
   const baseTabs = [
     { id: 'general',    label: 'General'    },
@@ -25,6 +27,8 @@
   onMount(async () => {
     isAdmin = await IsAdminMode()
     linked.set(await IsLinked())
+    upgrading = await IsUpgrading()
+    EventsOn('upgrading', () => { upgrading = true })
   })
 
   // Timers requires a linked account; Clients is admin-only.
@@ -38,6 +42,14 @@
   $: if (!tabs.find(t => t.id === activeTab)) activeTab = 'general'
 </script>
 
+{#if upgrading}
+  <div class="upgrade">
+    <img class="upgrade-icon" src="/FuseIcon2.png" alt="Fuse Bridge" />
+    <div class="upgrade-title">Upgrading your Fuse Bridge client…</div>
+    <div class="upgrade-sub">A new version is being installed. The app will restart automatically — this only takes a moment.</div>
+    <div class="upgrade-spinner"></div>
+  </div>
+{:else}
 <div class="shell" style="zoom:{$scale}; height:calc(100vh / {$scale})">
   <nav class="tab-bar">
     {#each tabs as t}
@@ -73,8 +85,34 @@
     {/if}
   </main>
 </div>
+{/if}
 
 <style>
+  .upgrade {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100vh;
+    padding: 24px;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-secondary);
+  }
+  .upgrade-icon { width: 72px; height: 72px; opacity: 0.95; }
+  .upgrade-title { font-size: 17px; font-weight: 600; color: var(--text-primary); }
+  .upgrade-sub { font-size: 13px; color: var(--text-secondary); max-width: 420px; line-height: 1.5; }
+  .upgrade-spinner {
+    margin-top: 6px;
+    width: 22px; height: 22px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: upgrade-spin 0.8s linear infinite;
+  }
+  @keyframes upgrade-spin { to { transform: rotate(360deg); } }
+
   .shell {
     display: flex;
     flex-direction: column;

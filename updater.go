@@ -27,11 +27,11 @@ func logIsStale() bool {
 	return lastLogActivity.IsZero() || time.Since(lastLogActivity) >= 1*time.Hour
 }
 
-// startUpdateChecker checks for a new client binary on startup and then every
-// 6 hours, but only when EQ logs have been quiet for at least an hour.
+// startUpdateChecker checks for a new client binary every 6 hours, but only when
+// EQ logs have been quiet for at least an hour. The initial startup check is
+// handled separately (see main.go) so the upgrade screen can be shown first.
 func startUpdateChecker() {
 	go func() {
-		checkForUpdate()
 		for range time.Tick(6 * time.Hour) {
 			checkForUpdate()
 		}
@@ -69,36 +69,44 @@ func touchUpdateStamp() {
 	os.WriteFile(p, nil, 0644)
 }
 
-func checkForUpdate() {
+// updateInfo reports whether a newer client is available and safe to install
+// now, returning (baseURL, newVersion, true) when so.
+func updateInfo() (string, string, bool) {
 	if !logIsStale() {
-		return
+		return "", "", false
 	}
 	if recentUpdateAttempt() {
-		return
+		return "", "", false
 	}
 	base := strings.TrimSuffix(serverURL, "/submit")
-	resp, err := http.Get(base + "/version")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(base + "/version")
 	if err != nil {
-		return
+		return "", "", false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return
+		return "", "", false
 	}
-
 	var vr versionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&vr); err != nil {
-		return
+		return "", "", false
 	}
-
 	if vr.Version == "" || vr.Version == clientVersion {
-		return
+		return "", "", false
 	}
 	if !versionGreaterThan(vr.Version, clientVersion) {
-		return // server version is not newer; don't downgrade
+		return "", "", false // server version is not newer; don't downgrade
 	}
+	return base, vr.Version, true
+}
 
-	addStatus("Update available (%s → %s), downloading...", clientVersion, vr.Version)
+func checkForUpdate() {
+	base, newVer, ok := updateInfo()
+	if !ok {
+		return
+	}
+	addStatus("Update available (%s → %s), downloading...", clientVersion, newVer)
 	applyUpdate(base)
 }
 
