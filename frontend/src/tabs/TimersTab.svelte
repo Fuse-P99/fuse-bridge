@@ -1,6 +1,8 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
   import { GetTimers } from '../../wailsjs/go/main/App'
+  import { linked } from '../lib/linkState.js'
+  import { activeTab } from '../lib/nav.js'
 
   let data = null
   let loading = true
@@ -12,6 +14,11 @@
   }
   onMount(async () => { await load(); timer = setInterval(load, 60000) })
   onDestroy(() => clearInterval(timer))
+
+  // Reload as soon as the account becomes linked so the board appears without
+  // waiting for the next poll.
+  let prevLinked
+  $: if ($linked !== prevLinked) { prevLinked = $linked; if ($linked) load() }
 
   const LABEL = { popped: 'Popped', in_window: 'In Window', upcoming: 'Upcoming' }
 
@@ -37,7 +44,13 @@
 </script>
 
 <div class="timers">
-  {#if loading}
+  {#if !$linked}
+    <div class="empty">
+      <div class="big">Link your Discord account</div>
+      <div class="hint">You must link your Discord account to validate your Fuse membership and view tracking.</div>
+      <button class="link-btn" on:click={() => activeTab.set('general')}>Link your account on the Status tab →</button>
+    </div>
+  {:else if loading}
     <div class="empty">Loading timers…</div>
   {:else if !data || !data.verified}
     <div class="empty">
@@ -133,5 +146,11 @@
     height:100%; gap:6px; color:var(--text-muted); font-size:13px; text-align:center;
   }
   .empty .big { color:var(--text-secondary); font-size:15px; font-weight:600; }
-  .empty .hint { font-size:12px; }
+  .empty .hint { font-size:12px; max-width:340px; line-height:1.5; }
+  .link-btn {
+    margin-top:8px; background:var(--bg-panel); border:1px solid var(--accent);
+    color:var(--accent); border-radius:4px; cursor:pointer; font-size:12px; padding:6px 14px;
+    transition:background 0.15s;
+  }
+  .link-btn:hover { background:var(--bg-input); }
 </style>

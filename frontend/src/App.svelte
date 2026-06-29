@@ -3,6 +3,7 @@
   import { IsAdminMode, IsLinked, IsUpgrading } from '../wailsjs/go/main/App'
   import { EventsOn } from '../wailsjs/runtime/runtime'
   import { linked } from './lib/linkState.js'
+  import { activeTab } from './lib/nav.js'
   import GeneralTab    from './tabs/GeneralTab.svelte'
   import RelayTab      from './tabs/RelayTab.svelte'
   import CharactersTab from './tabs/CharactersTab.svelte'
@@ -12,7 +13,6 @@
   import ClientsTab    from './tabs/ClientsTab.svelte'
   import { scale }     from './lib/scale.js'
 
-  let activeTab = 'general'
   let isAdmin   = false
   let upgrading = false
 
@@ -22,6 +22,7 @@
     { id: 'characters', label: 'Characters' },
     { id: 'zones',      label: 'Zones'      },
     { id: 'map',        label: 'Map'        },
+    { id: 'timers',     label: 'Timers'     },
   ]
 
   onMount(async () => {
@@ -31,15 +32,11 @@
     EventsOn('upgrading', () => { upgrading = true })
   })
 
-  // Timers requires a linked account; Clients is admin-only.
-  $: tabs = [
-    ...baseTabs,
-    ...($linked ? [{ id: 'timers', label: 'Timers' }] : []),
-    ...(isAdmin ? [{ id: 'clients', label: 'Clients' }] : []),
-  ]
+  // Timers is always visible (it prompts to link when unlinked); Clients is admin-only.
+  $: tabs = isAdmin ? [...baseTabs, { id: 'clients', label: 'Clients' }] : baseTabs
 
-  // If the current tab disappears (e.g. after unlinking), fall back to General.
-  $: if (!tabs.find(t => t.id === activeTab)) activeTab = 'general'
+  // If the current tab disappears (e.g. admin toggling), fall back to General.
+  $: if (!tabs.find(t => t.id === $activeTab)) activeTab.set('general')
 </script>
 
 {#if upgrading}
@@ -55,8 +52,8 @@
     {#each tabs as t}
       <button
         class="tab-btn"
-        class:active={activeTab === t.id}
-        on:click={() => activeTab = t.id}
+        class:active={$activeTab === t.id}
+        on:click={() => activeTab.set(t.id)}
       >{t.label}</button>
     {/each}
 
@@ -68,19 +65,19 @@
   </nav>
 
   <main class="tab-content">
-    {#if activeTab === 'general'}
+    {#if $activeTab === 'general'}
       <GeneralTab />
-    {:else if activeTab === 'relay'}
+    {:else if $activeTab === 'relay'}
       <RelayTab />
-    {:else if activeTab === 'characters'}
+    {:else if $activeTab === 'characters'}
       <CharactersTab />
-    {:else if activeTab === 'zones'}
+    {:else if $activeTab === 'zones'}
       <ZonesTab />
-    {:else if activeTab === 'map'}
+    {:else if $activeTab === 'map'}
       <MapTab />
-    {:else if activeTab === 'timers'}
+    {:else if $activeTab === 'timers'}
       <TimersTab />
-    {:else if activeTab === 'clients'}
+    {:else if $activeTab === 'clients'}
       <ClientsTab />
     {/if}
   </main>
