@@ -23,6 +23,7 @@ type Settings struct {
 	EQDirectory        string `json:"eq_directory"`
 	AdminMode          bool   `json:"admin_mode"`
 	SlainMessages      bool   `json:"slain_messages"`
+	Token              string `json:"token"` // per-client auth token from Discord linking
 }
 
 var (

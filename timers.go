@@ -47,7 +47,7 @@ func fetchTimers(toon string) TimersData {
 	if err != nil {
 		return out
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader())
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

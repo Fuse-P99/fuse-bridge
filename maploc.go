@@ -63,7 +63,7 @@ func (s *Sender) SendMapLoc(toon string, pos PlayerPosition) {
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+s.apiKey)
+		req.Header.Set("Authorization", authHeader())
 		resp, err := s.client.Do(req)
 		if err != nil {
 			return
@@ -85,7 +85,7 @@ func fetchZoneInfo() ([]ZoneNick, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader())
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -114,7 +114,7 @@ func fetchMapPositions(zone string) ([]MapPosition, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader())
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

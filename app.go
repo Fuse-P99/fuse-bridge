@@ -366,7 +366,7 @@ func (a *App) GetSpellsForClass(class string) []SpellEntry {
 	if err != nil {
 		return nil
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader())
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
@@ -396,6 +396,20 @@ func (a *App) GetCurrentZone() string { return CurrentZone() }
 func (a *App) GetTimers() TimersData {
 	return fetchTimers(currentCharName)
 }
+
+// --- Account linking ---
+
+// IsLinked reports whether this client has completed Discord account linking.
+func (a *App) IsLinked() bool { return IsLinked() }
+
+// StartLinking requests a fresh link code to display to the user.
+func (a *App) StartLinking() (string, error) { return StartLinking() }
+
+// PollLinking checks whether the code has been linked; saves the token on success.
+func (a *App) PollLinking(code string) (bool, error) { return PollLinking(code) }
+
+// Unlink revokes and clears this client's token so it can re-link (admin reset).
+func (a *App) Unlink() error { return Unlink() }
 
 // GetCharacterName returns the local player's current character name.
 func (a *App) GetCharacterName() string { return currentCharName }

@@ -94,6 +94,14 @@ export function IsFilteredToon(arg1) {
   return window['go']['main']['App']['IsFilteredToon'](arg1);
 }
 
+export function IsLinked() {
+  return window['go']['main']['App']['IsLinked']();
+}
+
+export function PollLinking(arg1) {
+  return window['go']['main']['App']['PollLinking'](arg1);
+}
+
 export function RefreshCharInfos(arg1) {
   return window['go']['main']['App']['RefreshCharInfos'](arg1);
 }
@@ -110,6 +118,14 @@ export function Show() {
   return window['go']['main']['App']['Show']();
 }
 
+export function StartLinking() {
+  return window['go']['main']['App']['StartLinking']();
+}
+
 export function ToggleFilteredToon(arg1) {
   return window['go']['main']['App']['ToggleFilteredToon'](arg1);
+}
+
+export function Unlink() {
+  return window['go']['main']['App']['Unlink']();
 }

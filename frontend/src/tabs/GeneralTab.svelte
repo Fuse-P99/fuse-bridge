@@ -4,6 +4,7 @@
     GetStatus, GetSettings, GetAutoStart,
     SetAutoStart, BrowseEQDirectory
   } from '../../wailsjs/go/main/App'
+  import AccountLink from '../lib/AccountLink.svelte'
 
   let status   = { eq_running: false, configured: false, log_file: '', connected: false, activity: [], version: '' }
   let autoStart = false
@@ -74,6 +75,11 @@
       <img class="app-icon" src="/FuseIcon2.png" alt="Fuse Bridge" />
     </div>
   </div>
+
+  <div class="sep" />
+
+  <!-- Account linking -->
+  <AccountLink />
 
   <div class="sep" />
 

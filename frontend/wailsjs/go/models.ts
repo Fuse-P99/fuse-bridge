@@ -94,6 +94,7 @@ export namespace main {
 	    eq_directory: string;
 	    admin_mode: boolean;
 	    slain_messages: boolean;
+	    token: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -116,6 +117,7 @@ export namespace main {
 	        this.eq_directory = source["eq_directory"];
 	        this.admin_mode = source["admin_mode"];
 	        this.slain_messages = source["slain_messages"];
+	        this.token = source["token"];
 	    }
 	}
 	export class SpellEntry {

@@ -140,7 +140,7 @@ func applyUpdate(baseURL string) {
 		addStatus("Update failed: %v", err)
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader())
 
 	client := &http.Client{Timeout: 2 * time.Minute}
 	resp, err := client.Do(req)

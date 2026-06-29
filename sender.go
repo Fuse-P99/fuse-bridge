@@ -130,7 +130,7 @@ func (s *Sender) send(lines []string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("Authorization", authHeader())
 
 	resp, err := s.client.Do(req)
 	if err != nil {

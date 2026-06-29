@@ -63,7 +63,7 @@ func identifyClient(eqDir string) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader())
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
