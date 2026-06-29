@@ -63,7 +63,7 @@
   {#if $linked}
     <div class="linked-row">
       <span class="dot green"></span>
-      <span class="linked-text">Account linked</span>
+      <span class="linked-text">Discord linked</span>
       {#if admin}
         <button class="btn danger" on:click={unlink} title="Revoke this client's token and re-run linking">
           Unlink / Reset
@@ -71,7 +71,7 @@
       {/if}
     </div>
   {:else if phase === 'waiting'}
-    <div class="section-label">Link your Fuse account</div>
+    <div class="section-label">Link your Discord account</div>
     <div class="steps">
       <div>1. In Discord, run <span class="mono">/linkclient</span></div>
       <div>2. Paste this code into the <span class="mono">code</span> field:</div>
@@ -83,9 +83,9 @@
     </div>
     <button class="btn" on:click={start}>Get a new code</button>
   {:else}
-    <div class="section-label">Link your Fuse account</div>
+    <div class="section-label">Link your Discord account</div>
     <p class="blurb">
-      Verify you're a Fuse member to relay under your own identity. You'll run a
+      Verify you're a Fuse member to access timers and other raid information. You'll run a
       quick Discord command — no shared password.
     </p>
     {#if phase === 'error'}<p class="err">{errMsg}</p>{/if}
