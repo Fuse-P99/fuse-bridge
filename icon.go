@@ -12,20 +12,12 @@ import (
 	"github.com/lxn/win"
 )
 
-//go:embed tray-uncolored.png
-var fuseIconBytes []byte
-
-//go:embed FuseIconConn.png
-var fuseIconConnBytes []byte
-
-//go:embed FuseIconDisconn.png
-var fuseIconDisconnBytes []byte
+//go:embed frontend/public/FuseIcon2.png
+var fuseTrayIconBytes []byte
 
 var (
-	appIcon          *walk.Icon // loaded from PE resource ID 1 — used for dialog title bars
-	iconStartup      *walk.Icon
-	iconConnected    *walk.Icon
-	iconDisconnected *walk.Icon
+	appIcon  *walk.Icon // loaded from PE resource ID 1 — used for dialog title bars
+	iconTray *walk.Icon // the app's Fuse icon, used for the system tray
 )
 
 var setClassLongPtrW = syscall.NewLazyDLL("user32.dll").NewProc("SetClassLongPtrW")
@@ -65,9 +57,7 @@ func applyDialogIcon(dlg *walk.Dialog) {
 
 func initIcons() {
 	appIcon, _ = walk.NewIconFromResourceId(2) // ID 2: manifest takes ID 1, icon group is ID 2
-	iconStartup, _ = iconFromPNG(fuseIconBytes)
-	iconConnected, _ = iconFromPNG(fuseIconConnBytes)
-	iconDisconnected, _ = iconFromPNG(fuseIconDisconnBytes)
+	iconTray, _ = iconFromPNG(fuseTrayIconBytes)
 }
 
 func iconFromPNG(data []byte) (*walk.Icon, error) {

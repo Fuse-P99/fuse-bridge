@@ -32,13 +32,10 @@ func runTray(openSettings func()) {
 	defer ni.Dispose()
 	trayIcon = ni
 
-	// Static icon + tooltip — the tray no longer reflects connection/EQ state.
-	icon := iconConnected
-	if icon == nil {
-		icon = iconStartup
-	}
-	if icon != nil {
-		ni.SetIcon(icon)
+	// Static icon + tooltip — the tray uses the app's Fuse icon and no longer
+	// reflects connection/EQ state.
+	if iconTray != nil {
+		ni.SetIcon(iconTray)
 	}
 	ni.SetToolTip("Fuse Bridge")
 	ni.SetVisible(true)
