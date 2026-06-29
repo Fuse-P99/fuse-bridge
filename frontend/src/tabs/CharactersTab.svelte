@@ -582,10 +582,10 @@
     color:var(--text-secondary); transition:background 0.1s, color 0.1s;
     display:flex; flex-direction:column; gap:2px;
   }
-  .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); }
-  .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); }
+  .char-item:hover  { background:rgba(255,255,255,0.04); color:var(--text-primary); font-weight:500;}
+  .char-item.sel    { background:rgba(200,169,81,0.12);  color:var(--accent); font-weight:500;}
   .char-row { display:flex; align-items:center; gap:6px; }
-  .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  .char-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:300; color:var(--text-primary); }
   .char-meta { margin-left:auto; color:var(--text-muted); font-size:11px; white-space:nowrap; }
   .char-zone { color:var(--text-muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--accent);}
   .match-badge { color:var(--text-muted); font-size:11px; margin-left:4px; }
