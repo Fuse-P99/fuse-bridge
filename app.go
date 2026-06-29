@@ -391,6 +391,12 @@ func (a *App) GetPlayerPosition() PlayerPosition { return GetPosition() }
 // GetCurrentZone returns the zone the local player is currently in.
 func (a *App) GetCurrentZone() string { return CurrentZone() }
 
+// GetTimers returns the raid timers board (gated server-side to Fuse members;
+// the current character is sent for verification).
+func (a *App) GetTimers() TimersData {
+	return fetchTimers(currentCharName)
+}
+
 // GetCharacterName returns the local player's current character name.
 func (a *App) GetCharacterName() string { return currentCharName }
 

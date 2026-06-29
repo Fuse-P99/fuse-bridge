@@ -66,6 +66,10 @@ export function GetStatus() {
   return window['go']['main']['App']['GetStatus']();
 }
 
+export function GetTimers() {
+  return window['go']['main']['App']['GetTimers']();
+}
+
 export function GetToonIdentities() {
   return window['go']['main']['App']['GetToonIdentities']();
 }

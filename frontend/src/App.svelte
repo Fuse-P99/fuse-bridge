@@ -6,6 +6,7 @@
   import CharactersTab from './tabs/CharactersTab.svelte'
   import ZonesTab      from './tabs/ZonesTab.svelte'
   import MapTab        from './tabs/MapTab.svelte'
+  import TimersTab     from './tabs/TimersTab.svelte'
   import ClientsTab    from './tabs/ClientsTab.svelte'
   import { scale }     from './lib/scale.js'
 
@@ -18,6 +19,7 @@
     { id: 'characters', label: 'Characters' },
     { id: 'zones',      label: 'Zones'      },
     { id: 'map',        label: 'Map'        },
+    { id: 'timers',     label: 'Timers'     },
   ]
 
   onMount(async () => {
@@ -55,6 +57,8 @@
       <ZonesTab />
     {:else if activeTab === 'map'}
       <MapTab />
+    {:else if activeTab === 'timers'}
+      <TimersTab />
     {:else if activeTab === 'clients'}
       <ClientsTab />
     {/if}

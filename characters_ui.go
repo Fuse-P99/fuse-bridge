@@ -96,7 +96,7 @@ func fetchBotToons() {
 		botToons[strings.ToLower(n)] = true
 	}
 	botToonsMu.Unlock()
-	addStatus("Loaded %d bot toon(s)", len(result.Names))
+	addStatus("Retreived %d bot toon(s) for bot filter.", len(result.Names))
 }
 
 // getAllCharNames returns the union of character names known from the zone cache
