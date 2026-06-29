@@ -1,22 +1,25 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
   import { IsLinked, StartLinking, PollLinking, Unlink, IsAdminMode } from '../../wailsjs/go/main/App'
+  import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
+  import { linked } from './linkState.js'
 
-  let linked = false
-  let admin  = false
-  let code   = ''
-  let phase  = 'idle' // idle | waiting | error
-  let errMsg = ''
+  let admin   = false
+  let code    = ''
+  let phase   = 'idle' // idle | waiting | error
+  let errMsg  = ''
+  let copied  = false
   let pollTimer
 
   onMount(async () => {
-    linked = await IsLinked()
-    admin  = await IsAdminMode()
+    linked.set(await IsLinked())
+    admin = await IsAdminMode()
   })
   onDestroy(() => clearInterval(pollTimer))
 
   async function start() {
     errMsg = ''
+    copied = false
     try {
       code = await StartLinking()
       phase = 'waiting'
@@ -32,7 +35,7 @@
     try {
       if (await PollLinking(code)) {
         clearInterval(pollTimer)
-        linked = true
+        linked.set(true)
         phase  = 'idle'
         code   = ''
       }
@@ -42,14 +45,22 @@
   async function unlink() {
     clearInterval(pollTimer)
     try { await Unlink() } catch { /* clear locally regardless */ }
-    linked = false
+    linked.set(false)
     phase  = 'idle'
     code   = ''
+  }
+
+  async function copyCode() {
+    try {
+      await ClipboardSetText(code)
+      copied = true
+      setTimeout(() => { copied = false }, 1500)
+    } catch { /* ignore clipboard failure */ }
   }
 </script>
 
 <div class="panel account">
-  {#if linked}
+  {#if $linked}
     <div class="linked-row">
       <span class="dot green"></span>
       <span class="linked-text">Account linked</span>
@@ -62,8 +73,12 @@
   {:else if phase === 'waiting'}
     <div class="section-label">Link your Fuse account</div>
     <div class="steps">
-      <div>1. In Discord, run:</div>
-      <div class="cmd">/linkclient code:<span class="code">{code}</span></div>
+      <div>1. In Discord, run <span class="mono">/linkclient</span></div>
+      <div>2. Paste this code into the <span class="mono">code</span> field:</div>
+      <button class="cmd" on:click={copyCode} title="Click to copy">
+        <span class="code">{code}</span>
+        <span class="copy-hint">{copied ? 'Copied!' : 'Click to copy'}</span>
+      </button>
       <div class="waiting"><span class="spinner"></span> Waiting for verification…</div>
     </div>
     <button class="btn" on:click={start}>Get a new code</button>
@@ -94,11 +109,16 @@
   .err   { color:var(--error); font-size:12px; margin:0 0 8px; }
 
   .steps { font-size:12px; color:var(--text-secondary); display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .mono { font-family:var(--font-mono); color:var(--text-primary); }
   .cmd {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
     font-family:var(--font-mono); background:var(--bg-input); border:1px solid var(--border);
-    border-radius:4px; padding:6px 9px; color:var(--text-primary);
+    border-radius:4px; padding:7px 10px; color:var(--text-primary); cursor:pointer;
+    width:100%; text-align:left; transition:border-color 0.15s;
   }
-  .code { color:var(--accent); font-weight:700; letter-spacing:0.06em; }
+  .cmd:hover { border-color:var(--accent); }
+  .code { color:var(--accent); font-weight:700; letter-spacing:0.12em; font-size:14px; }
+  .copy-hint { font-size:10px; color:var(--text-muted); white-space:nowrap; }
   .waiting { display:flex; align-items:center; gap:7px; color:var(--text-muted); font-style:italic; }
 
   .spinner {

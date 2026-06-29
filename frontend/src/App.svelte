@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte'
-  import { IsAdminMode } from '../wailsjs/go/main/App'
+  import { IsAdminMode, IsLinked } from '../wailsjs/go/main/App'
+  import { linked } from './lib/linkState.js'
   import GeneralTab    from './tabs/GeneralTab.svelte'
   import RelayTab      from './tabs/RelayTab.svelte'
   import CharactersTab from './tabs/CharactersTab.svelte'
@@ -19,14 +20,22 @@
     { id: 'characters', label: 'Characters' },
     { id: 'zones',      label: 'Zones'      },
     { id: 'map',        label: 'Map'        },
-    { id: 'timers',     label: 'Timers'     },
   ]
 
   onMount(async () => {
     isAdmin = await IsAdminMode()
+    linked.set(await IsLinked())
   })
 
-  $: tabs = isAdmin ? [...baseTabs, { id: 'clients', label: 'Clients' }] : baseTabs
+  // Timers requires a linked account; Clients is admin-only.
+  $: tabs = [
+    ...baseTabs,
+    ...($linked ? [{ id: 'timers', label: 'Timers' }] : []),
+    ...(isAdmin ? [{ id: 'clients', label: 'Clients' }] : []),
+  ]
+
+  // If the current tab disappears (e.g. after unlinking), fall back to General.
+  $: if (!tabs.find(t => t.id === activeTab)) activeTab = 'general'
 </script>
 
 <div class="shell" style="zoom:{$scale}; height:calc(100vh / {$scale})">
