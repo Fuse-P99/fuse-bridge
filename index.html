@@ -200,6 +200,39 @@
         text-align: center;
       }
 
+      /* Compliance notice */
+      .compliance {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: 640px;
+        width: 100%;
+        background: rgba(63, 185, 80, 0.1);
+        border: 1px solid var(--green);
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 28px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--text);
+      }
+      .compliance .check {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--green);
+        color: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 800;
+      }
+      .compliance strong {
+        color: var(--green);
+      }
+
       /* Screenshot gallery */
       .gallery {
         display: grid;
@@ -300,6 +333,16 @@
     </style>
   </head>
   <body>
+    <div class="compliance" role="note">
+      <span class="check" aria-hidden="true">&check;</span>
+      <span>
+        <strong>Project 1999 compliant.</strong> To comply with Project 1999's
+        ruleset, this utility
+        <strong>only reads from your EQ log files</strong>. It never reads game
+        memory or automates the client.
+      </span>
+    </div>
+
     <div class="hero">
       <div class="badge">Project 1999 · Fuse Guild</div>
       <h1>Fuse <span>Bridge</span></h1>
@@ -332,6 +375,7 @@
         automatically
       </p>
     </div>
+
     <div class="card">
       <h2>Getting Started</h2>
       <ol class="steps">
@@ -365,13 +409,13 @@
         <img src="FuseBridgeCharacters.png" alt="Characters" loading="lazy" />
         <figcaption>Characters</figcaption>
       </figure>
-      <figure data-src="FuseBridgeMaps.png">
-        <img src="FuseBridgeMaps.png" alt="Maps" loading="lazy" />
-        <figcaption>Maps</figcaption>
-      </figure>
       <figure data-src="FuseBridgeZones.png">
         <img src="FuseBridgeZones.png" alt="Zones" loading="lazy" />
         <figcaption>Zones</figcaption>
+      </figure>
+      <figure data-src="FuseBridgeMaps.png">
+        <img src="FuseBridgeMaps.png" alt="Maps" loading="lazy" />
+        <figcaption>Maps</figcaption>
       </figure>
       <figure data-src="FuseBridgeTimers.png">
         <img src="FuseBridgeTimers.png" alt="Timers" loading="lazy" />
