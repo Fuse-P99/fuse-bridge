@@ -121,6 +121,7 @@
   .group-title .count { font-weight:400; }
 
   .mob { padding:5px 0 6px; border-bottom:1px solid var(--border); }
+  .mob:hover { background:rgba(255,255,255,0.04); }
   .mob:last-child { border-bottom:none; }
   .mob-head { display:flex; align-items:center; gap:7px; }
   .mob-name { color:var(--text-primary); font-size:13px; font-weight:600; }
