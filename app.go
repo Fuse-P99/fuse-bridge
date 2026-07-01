@@ -500,12 +500,24 @@ func (a *App) GetToonIdentities() map[string]string {
 // wailsClientEntry mirrors adminClientEntry with LastSeen as Unix milliseconds.
 type wailsClientEntry struct {
 	Name     string `json:"name"`
+	Toon     string `json:"toon"`
+	Guild    string `json:"guild"`
+	LastZone string `json:"last_zone"`
 	Version  string `json:"version"`
 	LastSeen int64  `json:"last_seen"`
 	Status   string `json:"status"` // "active" | "connected" | "offline"
 }
 
 func (a *App) IsAdminMode() bool { return GetSettings().AdminMode }
+
+// GetClientActivity returns the server's rolling feed of relay-client actions.
+func (a *App) GetClientActivity() []string {
+	lines, err := fetchClientActivity()
+	if err != nil {
+		return []string{}
+	}
+	return lines
+}
 
 func (a *App) GetClients() ([]wailsClientEntry, error) {
 	clients, err := fetchClients()
@@ -516,6 +528,9 @@ func (a *App) GetClients() ([]wailsClientEntry, error) {
 	for i, c := range clients {
 		out[i] = wailsClientEntry{
 			Name:     c.Name,
+			Toon:     c.Toon,
+			Guild:    c.Guild,
+			LastZone: c.LastZone,
 			Version:  c.Version,
 			LastSeen: c.LastSeen.UnixMilli(),
 			Status:   c.Status,

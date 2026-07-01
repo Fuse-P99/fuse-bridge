@@ -22,6 +22,8 @@ export function GetCharSpellbook(arg1:string):Promise<Array<string>>;
 
 export function GetCharacterName():Promise<string>;
 
+export function GetClientActivity():Promise<Array<string>>;
+
 export function GetClients():Promise<Array<main.wailsClientEntry>>;
 
 export function GetCurrentZone():Promise<string>;

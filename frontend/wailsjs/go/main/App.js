@@ -42,6 +42,10 @@ export function GetCharacterName() {
   return window['go']['main']['App']['GetCharacterName']();
 }
 
+export function GetClientActivity() {
+  return window['go']['main']['App']['GetClientActivity']();
+}
+
 export function GetClients() {
   return window['go']['main']['App']['GetClients']();
 }

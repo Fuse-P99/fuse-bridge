@@ -277,6 +277,9 @@ export namespace main {
 	}
 	export class wailsClientEntry {
 	    name: string;
+	    toon: string;
+	    guild: string;
+	    last_zone: string;
 	    version: string;
 	    last_seen: number;
 	    status: string;
@@ -288,6 +291,9 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
+	        this.toon = source["toon"];
+	        this.guild = source["guild"];
+	        this.last_zone = source["last_zone"];
 	        this.version = source["version"];
 	        this.last_seen = source["last_seen"];
 	        this.status = source["status"];

@@ -10,6 +10,9 @@ import (
 
 type adminClientEntry struct {
 	Name     string    `json:"name"`
+	Toon     string    `json:"toon"`
+	Guild    string    `json:"guild"`
+	LastZone string    `json:"last_zone"`
 	Version  string    `json:"version"`
 	LastSeen time.Time `json:"last_seen"`
 	Status   string    `json:"status"` // "active" | "connected" | "offline"
@@ -38,6 +41,31 @@ func fetchClients() ([]adminClientEntry, error) {
 		return nil, err
 	}
 	return payload.Clients, nil
+}
+
+func fetchClientActivity() ([]string, error) {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	req, err := http.NewRequest(http.MethodGet, base+"/clientactivity", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", authHeader())
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	var payload struct {
+		Lines []string `json:"lines"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Lines, nil
 }
 
 func buildClientsText(clients []adminClientEntry) string {
