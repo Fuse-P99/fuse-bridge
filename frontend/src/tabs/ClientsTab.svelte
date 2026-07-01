@@ -33,57 +33,66 @@
   {#if error}
     <div class="msg error">{error}</div>
   {:else}
-    {#if !clients.length}
-      <div class="msg">No clients registered</div>
-    {:else}
-      <table>
-        <thead>
-          <tr>
-            <th class="c-status">Status</th>
-            <th class="c-name">Name</th>
-            <th class="c-toon">Toon</th>
-            <th class="c-zone">Last Zone</th>
-            <th class="c-ver">Version</th>
-            <th class="c-seen">Last Seen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each clients as c}
-            <tr class:connected={c.status === 'active' || c.status === 'connected'}>
-              <td class="c-status">
-                <span
-                  class="dot {c.status}"
-                  title={c.status === 'active' ? 'Relaying log data' : c.status === 'connected' ? 'Connected (no recent log data)' : 'Offline'}
-                ></span>
-              </td>
-              <td class="c-name">{c.name}</td>
-              <td class="c-toon">
-                {c.toon || '—'}{#if c.guild}<span class="guild">&lt;{c.guild}&gt;</span>{/if}
-              </td>
-              <td class="c-zone">{c.last_zone || '—'}</td>
-              <td class="c-ver mono">{c.version}</td>
-              <td class="c-seen">{since(c.last_seen)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-
-    <div class="section-label">Activity</div>
-    <div class="log">
-      {#if !activity.length}
-        <div class="log-empty">No recent activity</div>
+    <!-- Scrollable client list -->
+    <div class="table-wrap">
+      {#if !clients.length}
+        <div class="msg">No clients registered</div>
       {:else}
-        {#each [...activity].reverse() as line}
-          <div class="log-line">{line}</div>
-        {/each}
+        <table>
+          <thead>
+            <tr>
+              <th class="c-status">Status</th>
+              <th class="c-name">Name</th>
+              <th class="c-toon">Toon</th>
+              <th class="c-zone">Last Zone</th>
+              <th class="c-ver">Version</th>
+              <th class="c-seen">Last Seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each clients as c}
+              <tr class:connected={c.status === 'active' || c.status === 'connected'}>
+                <td class="c-status">
+                  <span
+                    class="dot {c.status}"
+                    title={c.status === 'active' ? 'Relaying log data' : c.status === 'connected' ? 'Connected (no recent log data)' : 'Offline'}
+                  ></span>
+                </td>
+                <td class="c-name">{c.name}</td>
+                <td class="c-toon">
+                  {c.toon || '—'}{#if c.guild}<span class="guild">&lt;{c.guild}&gt;</span>{/if}
+                </td>
+                <td class="c-zone">{c.last_zone || '—'}</td>
+                <td class="c-ver mono">{c.version}</td>
+                <td class="c-seen">{since(c.last_seen)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       {/if}
+    </div>
+
+    <!-- Activity panel pinned to the bottom -->
+    <div class="activity">
+      <div class="section-label">Activity</div>
+      <div class="log">
+        {#if !activity.length}
+          <div class="log-empty">No recent activity</div>
+        {:else}
+          {#each [...activity].reverse() as line}
+            <div class="log-line">{line}</div>
+          {/each}
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
 
 <style>
-  .clients { padding:16px; height:100%; overflow:auto; display:flex; flex-direction:column; }
+  .clients {
+    display:flex; flex-direction:column;
+    height:100%; padding:16px; overflow:hidden;
+  }
 
   .msg {
     color:var(--text-muted); font-size:12px;
@@ -91,9 +100,13 @@
   }
   .msg.error { color:var(--error); }
 
+  /* Client list scrolls; activity stays put */
+  .table-wrap { flex:1; min-height:0; overflow-y:auto; }
+
   table { width:100%; border-collapse:collapse; font-size:12px; }
 
   thead th {
+    position:sticky; top:0; z-index:1;
     background:var(--bg-panel); border-bottom:1px solid var(--border);
     color:var(--text-secondary); font-size:11px; font-weight:600;
     letter-spacing:0.04em; padding:8px 12px; text-align:left; text-transform:uppercase;
@@ -120,12 +133,13 @@
   .dot.connected { background:#e3a008; box-shadow:0 0 5px #e3a008; }
   .dot.offline   { background:var(--text-muted); }
 
+  .activity { flex-shrink:0; margin-top:14px; }
   .section-label {
     font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase;
-    color:var(--text-muted); margin:18px 0 5px;
+    color:var(--text-muted); margin-bottom:5px;
   }
   .log {
-    flex:1; min-height:120px; overflow-y:auto;
+    height:170px; overflow-y:auto;
     background:var(--bg-panel); border:1px solid var(--border); border-radius:4px;
     padding:7px 10px; font-family:var(--font-mono); font-size:11px;
     color:var(--text-secondary); line-height:1.55;
