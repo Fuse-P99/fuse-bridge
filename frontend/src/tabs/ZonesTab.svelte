@@ -229,7 +229,7 @@
               {#if expandedClasses.has(g.name + '::' + cl.name)}
                 {#each cl.members as m (m.name)}
                   <div class="row name-row">
-                    <span>{@html hl(m.name, query)}{#if classAbbr(cl.name)} - {m.level} {classAbbr(cl.name)}{/if}</span>
+                    <span>{@html hl(m.name, query)} {#if classAbbr(cl.name)} - {m.level} {classAbbr(cl.name)}{/if}</span>
                     {#if g.name === 'Fuse' && identityFor(m.name)}<span class="discord">{identityFor(m.name)}</span>{/if}
                   </div>
                 {/each}
