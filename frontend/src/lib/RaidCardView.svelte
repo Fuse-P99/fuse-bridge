@@ -169,14 +169,14 @@
   .rc-check { color: var(--success); font-weight: 800; }
   .rc-caster { color: var(--text-secondary); }
 
-  .rc-ch { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); }
+  .rc-ch { display: flex; flex-direction: column; gap: 2px; }
   .rc-chrow { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
-  .rc-chnum { min-width: 34px; text-align: center; color: var(--bg); background: #e3a008; border-radius: 3px; font-weight: 700; font-size: 11px; }
+  .rc-chnum { min-width: 34px; text-align: center; color: var(--bg); background: #0855e3; border-radius: 3px; font-weight: 700; font-size: 11px; }
   .rc-chcleric { color: var(--text-primary); }
   .rc-charrow { color: var(--text-muted); }
   .rc-chtank { color: var(--text-secondary); }
 
-  .rc-total { color: var(--text-muted); font-weight: 400; }
+  .rc-total { color: var(--text-primary); font-weight: 400; }
   .rc-class { display: flex; flex-direction: column; }
   .rc-class-head { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 1px 0; color: var(--text-muted); }
   .rc-class-head.has { cursor: pointer; color: var(--text-primary); }
