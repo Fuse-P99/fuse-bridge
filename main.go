@@ -49,6 +49,10 @@ func main() {
 	// Periodic update checks while running (every 6h); the initial check is above.
 	startUpdateChecker()
 
+	// Heartbeat so a running client shows as connected on the Clients tab even
+	// when idle (EQ closed / minimized to tray).
+	startHeartbeat()
+
 	done := make(chan struct{})
 	rawLines := make(chan string, 256)
 	fwdLines := make(chan string, 256)

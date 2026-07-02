@@ -114,3 +114,24 @@ func Unlink() error {
 func IsLinked() bool {
 	return GetSettings().Token != ""
 }
+
+// startHeartbeat pings the server once a minute so a running client shows as
+// "connected" (yellow) on the Clients tab even when idle — EQ closed or no log
+// activity. It hits /version (a cheap, unauthenticated endpoint); the request
+// still passes through the server's activity middleware, marking the client
+// present without counting as game data (which is what turns a client green).
+func startHeartbeat() {
+	go func() {
+		u := registerBase() + "/version"
+		client := &http.Client{Timeout: 10 * time.Second}
+		for {
+			if req, err := http.NewRequest(http.MethodGet, u, nil); err == nil {
+				req.Header.Set("Authorization", authHeader())
+				if resp, e := client.Do(req); e == nil {
+					resp.Body.Close()
+				}
+			}
+			time.Sleep(60 * time.Second)
+		}
+	}()
+}
