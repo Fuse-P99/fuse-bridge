@@ -113,9 +113,9 @@
 
   function computePopped(d, isAdmin) {
     let list = (d && d.mobs) ? d.mobs.filter(m => m.status === 'popped') : []
-    if (isAdmin) {
-      list = [{ name: sampleCard.target + ' (sample)', status: 'popped', is_raid: true, sample: true, raid: sampleCard, trackers: [] }, ...list]
-    }
+    //if (isAdmin) {
+    //  list = [{ name: sampleCard.target + ' (sample)', status: 'popped', is_raid: true, sample: true, raid: sampleCard, trackers: [] }, ...list]
+    //}
     return list
   }
   $: popped = computePopped(data, admin)
