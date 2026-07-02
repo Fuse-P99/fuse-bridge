@@ -110,9 +110,10 @@
             <div class="rc-class">
               <div class="rc-class-head" class:has={groupFor(ab).members.length}
                    on:click={() => groupFor(ab).members.length && toggleClass(ab)}>
+                {#if groupFor(ab).members.length}<span class="rc-chev2">{openClass[ab] ? '▾' : '▸'}</span>{/if}
                 <span class="rc-abbr">{ab}</span>
                 <span class="rc-cnt">{groupFor(ab).members.length}</span>
-                {#if groupFor(ab).members.length}<span class="rc-chev2">{openClass[ab] ? '▾' : '▸'}</span>{/if}
+                
               </div>
               {#if openClass[ab]}
                 {#each groupFor(ab).members as m}
@@ -197,7 +198,7 @@
   .rc-class { display: flex; flex-direction: column; }
   .rc-class-head { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 1px 0; color: var(--text-muted); }
   .rc-class-head.has { cursor: pointer; color: var(--text-primary); }
-  .rc-abbr { font-family: var(--font-mono); font-weight: 700; min-width: 32px; }
+  .rc-abbr { font-weight: 700; min-width: 32px; }
   .rc-cnt { color: var(--text-muted); }
   .rc-chev2 { margin-left: auto; font-size: 10px; }
   .rc-member { font-size: 12px; color: var(--text-secondary); margin-left: 20px; }
