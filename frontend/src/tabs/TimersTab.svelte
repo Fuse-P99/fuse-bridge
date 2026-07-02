@@ -16,16 +16,15 @@
   let openRaid = {}       // mob name → expanded (default true)
   let completedOpen = {}  // completed raid index → open
 
-  function raidOpenFor(name) { return openRaid[name] !== undefined ? openRaid[name] : true }
-  function toggleRaid(name) { openRaid = { ...openRaid, [name]: !raidOpenFor(name) } }
+  function toggleRaid(name) { openRaid = { ...openRaid, [name]: !(openRaid[name] ?? true) } }
   function toggleCompleted(i) { completedOpen = { ...completedOpen, [i]: !completedOpen[i] } }
 
-  // Live HP for a mob by name (undefined if none seen).
-  function hpFor(name) { return name ? mobHPs[name.toLowerCase()] : undefined }
-  function raidLiveHP(m) {
+  // Live HP lookups take the map as an arg so Svelte tracks it as a dependency.
+  function hpFor(hps, name) { return name ? hps[name.toLowerCase()] : undefined }
+  function raidLiveHP(hps, m) {
     if (m.sample) return null
-    let h = hpFor(m.raid && m.raid.target)
-    if (h === undefined) h = hpFor(m.name)
+    let h = hpFor(hps, m.raid && m.raid.target)
+    if (h === undefined) h = hpFor(hps, m.name)
     return h === undefined ? -1 : h
   }
 
@@ -159,17 +158,17 @@
                 <span class="dot {dotClass(m)}"></span>
               {/if}
               <span class="mob-name" class:raid={m.is_raid}>{m.name}</span>
-              {#if m.is_raid}<span class="chev chev-auto">{raidOpenFor(m.name) ? '▾' : '▸'}</span>{/if}
+              {#if m.is_raid}<span class="chev chev-auto">{(openRaid[m.name] ?? true) ? '▾' : '▸'}</span>{/if}
             </div>
-            {#if m.is_raid && m.raid && raidOpenFor(m.name)}
-              <RaidCardView card={m.raid} liveHP={raidLiveHP(m)} />
+            {#if m.is_raid && m.raid && (openRaid[m.name] ?? true)}
+              <RaidCardView card={m.raid} liveHP={raidLiveHP(mobHPs, m)} />
             {:else if !m.is_raid && m.detail}
               <div class="mob-detail">{m.detail}</div>
             {/if}
-            {#if !m.is_raid && hpFor(m.name) !== undefined}
+            {#if !m.is_raid && hpFor(mobHPs, m.name) !== undefined}
               <div class="mini-bar">
-                <div class="mini-fill" style="width:{hpFor(m.name)}%"></div>
-                <span class="mini-txt">{hpFor(m.name)}%</span>
+                <div class="mini-fill" style="width:{hpFor(mobHPs, m.name)}%"></div>
+                <span class="mini-txt">{hpFor(mobHPs, m.name)}%</span>
               </div>
             {/if}
             {#if m.trackers && m.trackers.length}
