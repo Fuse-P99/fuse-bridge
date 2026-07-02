@@ -200,7 +200,7 @@
   .rc-class-head.has { cursor: pointer; color: var(--text-primary); }
   .rc-abbr { font-weight: 700; min-width: 32px; }
   .rc-cnt { color: var(--text-muted); }
-  .rc-chev2 { margin-left: auto; font-size: 10px; }
+  .rc-chev2 { font-size: 16px; }
   .rc-member { font-size: 12px; color: var(--text-secondary); margin-left: 20px; }
   .rc-disc { color: var(--text-muted); }
 
