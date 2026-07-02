@@ -196,9 +196,9 @@
 
   .rc-total { color: var(--text-primary); font-weight: 400; }
   .rc-class { display: flex; flex-direction: column; }
-  .rc-class-head { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 1px 0; color: var(--text-muted); }
+  .rc-class-head { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 1px 0; color: var(--text-muted); }
   .rc-class-head.has { cursor: pointer; color: var(--text-primary); }
-  .rc-abbr { font-weight: 700; min-width: 32px; }
+  .rc-abbr { font-weight: 500; min-width: 20px; }
   .rc-cnt { color: var(--text-muted); }
   .rc-chev2 { font-size: 16px; }
   .rc-member { font-size: 12px; color: var(--text-secondary); margin-left: 20px; }
