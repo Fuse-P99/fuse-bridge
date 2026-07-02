@@ -119,12 +119,13 @@ func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
 }
 
 type submitPayload struct {
-	Lines []string `json:"lines"`
-	Toon  string   `json:"toon"`
+	Lines   []string `json:"lines"`
+	Toon    string   `json:"toon"`
+	Version string   `json:"version"`
 }
 
 func (s *Sender) send(lines []string) error {
-	body, _ := json.Marshal(submitPayload{Lines: lines, Toon: currentCharName})
+	body, _ := json.Marshal(submitPayload{Lines: lines, Toon: currentCharName, Version: clientVersion})
 	req, err := http.NewRequest(http.MethodPost, s.serverURL, bytes.NewReader(body))
 	if err != nil {
 		return err
