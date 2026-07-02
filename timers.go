@@ -39,21 +39,51 @@ type RaidCHSlot struct {
 	Tank   string `json:"tank"`
 }
 
+// RaidLoot mirrors the server's auctioned loot item.
+type RaidLoot struct {
+	Name    string `json:"name"`
+	WikiURL string `json:"wiki_url"`
+	Price   string `json:"price"`
+}
+
+// RaidRaider mirrors a server raider entry.
+type RaidRaider struct {
+	Name    string `json:"name"`
+	Discord string `json:"discord"`
+	Level   int    `json:"level"`
+}
+
+// RaidClassGroup mirrors a server class group.
+type RaidClassGroup struct {
+	Class   string       `json:"class"`
+	Members []RaidRaider `json:"members"`
+}
+
+// RaidRaiders mirrors the server's class composition.
+type RaidRaiders struct {
+	Total  int              `json:"total"`
+	Groups []RaidClassGroup `json:"groups"`
+}
+
 // RaidCard mirrors the server's raid detail card.
 type RaidCard struct {
-	Target          string       `json:"target"`
-	Status          string       `json:"status"`
-	KilledAgo       string       `json:"killed_ago"`
-	ActiveMainTank  string       `json:"active_main_tank"`
-	ActiveRampTank  string       `json:"active_ramp_tank"`
-	MainTankList    string       `json:"main_tank_list"`
-	TrashTankList   string       `json:"trash_tank_list"`
-	RampageTankList string       `json:"rampage_tank_list"`
-	BumpList        string       `json:"bump_list"`
-	FlufferClerics  string       `json:"fluffer_clerics"`
-	Debuffs         []RaidKV     `json:"debuffs"`
-	CHChain         []RaidCHSlot `json:"ch_chain"`
-	Loot            []string     `json:"loot"`
+	Target           string       `json:"target"`
+	Status           string       `json:"status"`
+	KilledAgo        string       `json:"killed_ago"`
+	TargetHP         int          `json:"target_hp"`
+	ActiveMainTank   string       `json:"active_main_tank"`
+	ActiveRampTank   string       `json:"active_ramp_tank"`
+	MainTankList     string       `json:"main_tank_list"`
+	TrashTankList    string       `json:"trash_tank_list"`
+	RampageTankList  string       `json:"rampage_tank_list"`
+	BumpList         string       `json:"bump_list"`
+	FlufferClerics   string       `json:"fluffer_clerics"`
+	Debuffs          []RaidKV     `json:"debuffs"`
+	CHChain          []RaidCHSlot `json:"ch_chain"`
+	Loot             []RaidLoot   `json:"loot"`
+	Raiders          RaidRaiders  `json:"raiders"`
+	DiscordChannelID string       `json:"discord_channel_id"`
+	DiscordURL       string       `json:"discord_url"`
 }
 
 // BatphoneBanner mirrors the server's freeform batphone banner.

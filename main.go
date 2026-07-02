@@ -93,6 +93,7 @@ func main() {
 			case line := <-rawLines:
 				lastLogActivity = time.Now()
 				RecordLoginLine(line)
+				RecordRaidHPFromLine(line)
 				if zone := ExtractZone(line); zone != "" {
 					UpdateLocalZone(currentCharName, zone)
 					SetCurrentZone(zone)

@@ -108,54 +108,34 @@ export namespace main {
 	        this.tank = source["tank"];
 	    }
 	}
-	export class RaidKV {
+	export class RaidRaider {
 	    name: string;
-	    value: string;
+	    discord: string;
+	    level: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new RaidKV(source);
+	        return new RaidRaider(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
-	        this.value = source["value"];
+	        this.discord = source["discord"];
+	        this.level = source["level"];
 	    }
 	}
-	export class RaidCard {
-	    target: string;
-	    status: string;
-	    killed_ago: string;
-	    active_main_tank: string;
-	    active_ramp_tank: string;
-	    main_tank_list: string;
-	    trash_tank_list: string;
-	    rampage_tank_list: string;
-	    bump_list: string;
-	    fluffer_clerics: string;
-	    debuffs: RaidKV[];
-	    ch_chain: RaidCHSlot[];
-	    loot: string[];
+	export class RaidClassGroup {
+	    class: string;
+	    members: RaidRaider[];
 	
 	    static createFrom(source: any = {}) {
-	        return new RaidCard(source);
+	        return new RaidClassGroup(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.target = source["target"];
-	        this.status = source["status"];
-	        this.killed_ago = source["killed_ago"];
-	        this.active_main_tank = source["active_main_tank"];
-	        this.active_ramp_tank = source["active_ramp_tank"];
-	        this.main_tank_list = source["main_tank_list"];
-	        this.trash_tank_list = source["trash_tank_list"];
-	        this.rampage_tank_list = source["rampage_tank_list"];
-	        this.bump_list = source["bump_list"];
-	        this.fluffer_clerics = source["fluffer_clerics"];
-	        this.debuffs = this.convertValues(source["debuffs"], RaidKV);
-	        this.ch_chain = this.convertValues(source["ch_chain"], RaidCHSlot);
-	        this.loot = source["loot"];
+	        this.class = source["class"];
+	        this.members = this.convertValues(source["members"], RaidRaider);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -176,6 +156,134 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class RaidRaiders {
+	    total: number;
+	    groups: RaidClassGroup[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidRaiders(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.groups = this.convertValues(source["groups"], RaidClassGroup);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RaidLoot {
+	    name: string;
+	    wiki_url: string;
+	    price: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidLoot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.wiki_url = source["wiki_url"];
+	        this.price = source["price"];
+	    }
+	}
+	export class RaidKV {
+	    name: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidKV(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.value = source["value"];
+	    }
+	}
+	export class RaidCard {
+	    target: string;
+	    status: string;
+	    killed_ago: string;
+	    target_hp: number;
+	    active_main_tank: string;
+	    active_ramp_tank: string;
+	    main_tank_list: string;
+	    trash_tank_list: string;
+	    rampage_tank_list: string;
+	    bump_list: string;
+	    fluffer_clerics: string;
+	    debuffs: RaidKV[];
+	    ch_chain: RaidCHSlot[];
+	    loot: RaidLoot[];
+	    raiders: RaidRaiders;
+	    discord_channel_id: string;
+	    discord_url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidCard(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.target = source["target"];
+	        this.status = source["status"];
+	        this.killed_ago = source["killed_ago"];
+	        this.target_hp = source["target_hp"];
+	        this.active_main_tank = source["active_main_tank"];
+	        this.active_ramp_tank = source["active_ramp_tank"];
+	        this.main_tank_list = source["main_tank_list"];
+	        this.trash_tank_list = source["trash_tank_list"];
+	        this.rampage_tank_list = source["rampage_tank_list"];
+	        this.bump_list = source["bump_list"];
+	        this.fluffer_clerics = source["fluffer_clerics"];
+	        this.debuffs = this.convertValues(source["debuffs"], RaidKV);
+	        this.ch_chain = this.convertValues(source["ch_chain"], RaidCHSlot);
+	        this.loot = this.convertValues(source["loot"], RaidLoot);
+	        this.raiders = this.convertValues(source["raiders"], RaidRaiders);
+	        this.discord_channel_id = source["discord_channel_id"];
+	        this.discord_url = source["discord_url"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	
+	
 	
 	export class Settings {
 	    guild_chat: boolean;

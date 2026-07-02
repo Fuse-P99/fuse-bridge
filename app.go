@@ -418,9 +418,27 @@ func (a *App) GetPlayerPosition() PlayerPosition { return GetPosition() }
 func (a *App) GetCurrentZone() string { return CurrentZone() }
 
 // GetTimers returns the raid timers board (gated server-side to Fuse members;
-// the current character is sent for verification).
+// the current character is sent for verification). It also refreshes the live
+// HP filter's set of popped mobs to watch.
 func (a *App) GetTimers() TimersData {
-	return fetchTimers(currentCharName)
+	data := fetchTimers(currentCharName)
+	var popped []string
+	for _, m := range data.Mobs {
+		if m.Status == "popped" {
+			popped = append(popped, m.Name)
+			if m.Raid != nil && m.Raid.Target != "" {
+				popped = append(popped, m.Raid.Target)
+			}
+		}
+	}
+	SetWatchedMobs(popped)
+	return data
+}
+
+// GetMobHPs returns live per-mob health percents (lower name → 0-100) parsed from
+// the local log, for responsive health bars. Polled quickly by the Raids tab.
+func (a *App) GetMobHPs() map[string]int {
+	return GetMobHPs()
 }
 
 // --- Account linking ---

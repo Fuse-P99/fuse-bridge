@@ -30,6 +30,8 @@ export function GetCurrentZone():Promise<string>;
 
 export function GetGuildMapPositions(arg1:string):Promise<Array<main.MapPosition>>;
 
+export function GetMobHPs():Promise<Record<string, number>>;
+
 export function GetPlayerPosition():Promise<main.PlayerPosition>;
 
 export function GetSettings():Promise<main.Settings>;

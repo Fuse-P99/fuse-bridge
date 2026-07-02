@@ -58,6 +58,10 @@ export function GetGuildMapPositions(arg1) {
   return window['go']['main']['App']['GetGuildMapPositions'](arg1);
 }
 
+export function GetMobHPs() {
+  return window['go']['main']['App']['GetMobHPs']();
+}
+
 export function GetPlayerPosition() {
   return window['go']['main']['App']['GetPlayerPosition']();
 }

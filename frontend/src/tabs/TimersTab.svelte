@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
-  import { GetTimers, IsAdminMode } from '../../wailsjs/go/main/App'
+  import { GetTimers, IsAdminMode, GetMobHPs } from '../../wailsjs/go/main/App'
   import { linked } from '../lib/linkState.js'
   import { activeTab } from '../lib/nav.js'
   import RaidCardView from '../lib/RaidCardView.svelte'
@@ -8,27 +8,56 @@
   let data = null
   let loading = true
   let admin = false
+  let mobHPs = {}         // lower mob name → live HP percent
   let timer
+  let hpTimer
+  let pollMs = 60000      // active raids poll every 5s, otherwise 60s
 
-  // Expansion state.
-  let raidOpen = true          // current-raid card auto-expanded
-  let completedOpen = {}       // completed raid index → open
+  let openRaid = {}       // mob name → expanded (default true)
+  let completedOpen = {}  // completed raid index → open
+
+  function raidOpenFor(name) { return openRaid[name] !== undefined ? openRaid[name] : true }
+  function toggleRaid(name) { openRaid = { ...openRaid, [name]: !raidOpenFor(name) } }
+  function toggleCompleted(i) { completedOpen = { ...completedOpen, [i]: !completedOpen[i] } }
+
+  // Live HP for a mob by name (undefined if none seen).
+  function hpFor(name) { return name ? mobHPs[name.toLowerCase()] : undefined }
+  function raidLiveHP(m) {
+    if (m.sample) return null
+    let h = hpFor(m.raid && m.raid.target)
+    if (h === undefined) h = hpFor(m.name)
+    return h === undefined ? -1 : h
+  }
+
+  // Poll faster while a real raid is active so assignments/HP stay fresh.
+  function reschedule() {
+    const active = (data && data.mobs && data.mobs.some(m => m.is_raid))
+    const want = active ? 5000 : 60000
+    if (want !== pollMs) {
+      pollMs = want
+      clearInterval(timer)
+      timer = setInterval(load, pollMs)
+    }
+  }
 
   async function load() {
     try { data = await GetTimers() } catch { data = null }
     loading = false
+    reschedule()
+  }
+  async function pollHP() {
+    try { mobHPs = await GetMobHPs() || {} } catch { mobHPs = {} }
   }
   onMount(async () => {
     admin = await IsAdminMode()
     await load()
-    timer = setInterval(load, 60000)
+    timer = setInterval(load, pollMs)
+    hpTimer = setInterval(pollHP, 2000)
   })
-  onDestroy(() => clearInterval(timer))
+  onDestroy(() => { clearInterval(timer); clearInterval(hpTimer) })
 
   let prevLinked
   $: if ($linked !== prevLinked) { prevLinked = $linked; if ($linked) load() }
-
-  const LABEL = { popped: 'Popped', in_window: 'In Window', upcoming: 'Upcoming' }
 
   function dotClass(m) {
     if (m.status === 'in_window' && !(m.trackers && m.trackers.length)) return 'untracked'
@@ -40,30 +69,56 @@
     if (t.ago)  s += ` · ${t.ago}`
     return s
   }
-  function toggleCompleted(i) {
-    completedOpen = { ...completedOpen, [i]: !completedOpen[i] }
-  }
 
-  $: popped   = (data && data.mobs) ? data.mobs.filter(m => m.status === 'popped')    : []
-  $: inWindow = (data && data.mobs) ? data.mobs.filter(m => m.status === 'in_window') : []
-  $: upcoming = (data && data.mobs) ? data.mobs.filter(m => m.status === 'upcoming')  : []
-
-  // Fully-populated fictional card for admins to tweak the layout without a live raid.
+  // Fully-populated fictional card so admins can tweak the layout without a live raid.
+  const sampleGroups = [
+    { class: 'CLR', members: [ { name: 'Healbot', level: 60, discord: 'Bob' }, { name: 'Mendy', level: 59, discord: 'Alice' } ] },
+    { class: 'WAR', members: [ { name: 'Tanky', level: 60, discord: 'Carl' }, { name: 'Ironhide', level: 60, discord: 'Dave' } ] },
+    { class: 'SHD', members: [ { name: 'Grimtank', level: 58, discord: 'Eve' } ] },
+    { class: 'PAL', members: [ { name: 'Lightbringer', level: 60, discord: 'Frank' } ] },
+    { class: 'MAG', members: [ { name: 'Pewpew', level: 60, discord: 'Grace' } ] },
+    { class: 'BRD', members: [ { name: 'Songbird', level: 60, discord: 'Heidi' } ] },
+    { class: 'DRU', members: [] },
+    { class: 'ENC', members: [ { name: 'Mezzer', level: 59, discord: 'Ivan' } ] },
+    { class: 'MNK', members: [ { name: 'Puncher', level: 60, discord: 'Judy' } ] },
+    { class: 'NEC', members: [] },
+    { class: 'RNG', members: [] },
+    { class: 'ROG', members: [ { name: 'Backstab', level: 60, discord: 'Ken' } ] },
+    { class: 'SHM', members: [ { name: 'Slower', level: 60, discord: 'Laura' } ] },
+    { class: 'WIZ', members: [ { name: 'Nukey', level: 60, discord: 'Mike' } ] },
+  ]
   const sampleCard = {
-    target: 'Lord Nagafen', status: 'active',
+    target: 'Lord Nagafen', status: 'active', target_hp: 62,
     active_main_tank: 'Tanky', active_ramp_tank: 'Bruiser',
     main_tank_list: 'Tanky, Steelskin, Ironhide', rampage_tank_list: 'Bruiser, Basher',
     trash_tank_list: 'Warddog, Meatwall', bump_list: 'Nudge, Shove',
     fluffer_clerics: 'Healbot, Mendy, Pious',
     debuffs: [ { name: 'Malo', value: 'Debuffa' }, { name: 'Slow', value: 'Slowpoke' }, { name: 'Snare', value: 'Snarey' } ],
     ch_chain: [
-      { label: '1', cleric: 'Cleric1', tank: 'Tanky' },
-      { label: '2', cleric: 'Cleric2', tank: 'Tanky' },
-      { label: '3', cleric: 'Cleric3', tank: 'Tanky' },
+      { label: '111', cleric: 'Cleric1', tank: 'Tanky' },
+      { label: '222', cleric: 'Cleric2', tank: 'Tanky' },
+      { label: '333', cleric: 'Cleric3', tank: 'Tanky' },
+      { label: '000', cleric: 'Cleric10', tank: 'Tanky' },
+      { label: 'AAA', cleric: 'ClericA', tank: 'Tanky' },
       { label: 'RR1', cleric: 'RampCleric', tank: 'Bruiser' },
     ],
-    loot: ['Flowing Black Silk Sash', 'Cloak of Flames', "Nature Walker's Scimitar"],
+    loot: [
+      { name: 'Flowing Black Silk Sash', wiki_url: 'https://wiki.project1999.com/Flowing_Black_Silk_Sash', price: '250 DKP · Tanky' },
+      { name: 'Cloak of Flames', wiki_url: 'https://wiki.project1999.com/Cloak_of_Flames', price: '175 DKP · Pewpew' },
+    ],
+    raiders: { total: 14, groups: sampleGroups },
+    discord_url: 'https://discord.com/channels/0/0',
   }
+
+  $: popped = (() => {
+    let list = (data && data.mobs) ? data.mobs.filter(m => m.status === 'popped') : []
+    if (admin) {
+      list = [{ name: sampleCard.target + ' (sample)', status: 'popped', is_raid: true, sample: true, raid: sampleCard, trackers: [] }, ...list]
+    }
+    return list
+  })()
+  $: inWindow = (data && data.mobs) ? data.mobs.filter(m => m.status === 'in_window') : []
+  $: upcoming = (data && data.mobs) ? data.mobs.filter(m => m.status === 'upcoming')  : []
 </script>
 
 <div class="timers">
@@ -82,7 +137,6 @@
     </div>
   {:else}
     <div class="board">
-      <!-- Batphone banners -->
       {#if data.batphones && data.batphones.length}
         {#each data.batphones as b}
           <div class="banner"><span class="banner-tag">BATPHONE</span> {b.text}</div>
@@ -93,36 +147,30 @@
         <div class="porter"><span class="ptag">PORTER</span> {data.porter}</div>
       {/if}
 
-      {#if admin}
-        <div class="group-title sample">Sample (admin preview)</div>
-        <div class="mob">
-          <div class="mob-head">
-            <span class="swords">⚔</span>
-            <span class="mob-name">{sampleCard.target}</span>
-            <span class="chev">▾</span>
-          </div>
-          <RaidCardView card={sampleCard} />
-        </div>
-      {/if}
-
-      <!-- Popped -->
+      <!-- Popped (current raid = gold swords + expandable card; admin sample prepended) -->
       {#if popped.length}
         <div class="group-title popped">Popped <span class="count">({popped.length})</span></div>
         {#each popped as m}
           <div class="mob">
-            <div class="mob-head" class:clickable={m.is_raid} on:click={() => { if (m.is_raid) raidOpen = !raidOpen }}>
+            <div class="mob-head" class:clickable={m.is_raid} on:click={() => { if (m.is_raid) toggleRaid(m.name) }}>
               {#if m.is_raid}
                 <span class="swords" title="Current raid">⚔</span>
               {:else}
                 <span class="dot {dotClass(m)}"></span>
               {/if}
               <span class="mob-name" class:raid={m.is_raid}>{m.name}</span>
-              {#if m.is_raid}<span class="chev chev-auto">{raidOpen ? '▾' : '▸'}</span>{/if}
+              {#if m.is_raid}<span class="chev chev-auto">{raidOpenFor(m.name) ? '▾' : '▸'}</span>{/if}
             </div>
-            {#if m.is_raid && m.raid && raidOpen}
-              <RaidCardView card={m.raid} />
-            {:else if m.detail}
+            {#if m.is_raid && m.raid && raidOpenFor(m.name)}
+              <RaidCardView card={m.raid} liveHP={raidLiveHP(m)} />
+            {:else if !m.is_raid && m.detail}
               <div class="mob-detail">{m.detail}</div>
+            {/if}
+            {#if !m.is_raid && hpFor(m.name) !== undefined}
+              <div class="mini-bar">
+                <div class="mini-fill" style="width:{hpFor(m.name)}%"></div>
+                <span class="mini-txt">{hpFor(m.name)}%</span>
+              </div>
             {/if}
             {#if m.trackers && m.trackers.length}
               <div class="mob-trackers">
@@ -204,9 +252,7 @@
     background:rgba(227,160,8,0.16); border:1px solid #e3a008; border-radius:6px;
     padding:8px 10px; margin-bottom:8px; font-size:13px; color:var(--text-primary);
   }
-  .banner-tag {
-    color:#e3a008; font-weight:800; font-size:10px; letter-spacing:0.08em; margin-right:8px;
-  }
+  .banner-tag { color:#e3a008; font-weight:800; font-size:10px; letter-spacing:0.08em; margin-right:8px; }
 
   .porter {
     background:var(--bg-panel); border:1px solid var(--border); border-radius:6px;
@@ -222,7 +268,6 @@
   .group-title.in_window { color:#3fb950; }
   .group-title.upcoming  { color:var(--text-muted); }
   .group-title.completed { color:var(--success); }
-  .group-title.sample    { color:#e3a008; }
   .group-title .count { font-weight:400; }
 
   .mob { padding:5px 0 6px; border-bottom:1px solid var(--border); }
@@ -245,6 +290,14 @@
 
   .mob-detail   { color:var(--text-secondary); font-size:12px; margin:1px 0 0 15px; }
   .mob-trackers { color:var(--text-muted); font-size:11px; font-style:italic; margin:1px 0 0 15px; }
+
+  /* Inline HP bar for a non-current popped mob */
+  .mini-bar {
+    position:relative; height:12px; border-radius:3px; overflow:hidden; margin:3px 0 0 15px;
+    background:#3a1414; border:1px solid #5c2020;
+  }
+  .mini-fill { position:absolute; inset:0 auto 0 0; background:linear-gradient(90deg,#b91c1c,#ef4444); transition:width 0.4s ease; }
+  .mini-txt { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff; }
 
   .footer {
     flex-shrink:0; display:flex; justify-content:space-between; gap:10px;
