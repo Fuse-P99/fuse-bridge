@@ -19,6 +19,10 @@
   $: raiderMap = Object.fromEntries(((card.raiders && card.raiders.groups) || []).map(g => [g.class, g]))
   function groupFor(ab) { return raiderMap[ab] || { class: ab, members: [] } }
 
+  // Split the CH chain into main and rampage (RR#) so we can space them apart.
+  $: chMain = ((card.ch_chain) || []).filter(s => !(s.label || '').startsWith('RR'))
+  $: chRamp = ((card.ch_chain) || []).filter(s => (s.label || '').startsWith('RR'))
+
   // Always list these debuffs; attribute the most recent caster + a check when seen.
   const DEBUFF_ORDER = ['Tash', 'Malo', 'Slow', 'Cripple']
   function debuffCaster(key) {
@@ -71,7 +75,7 @@
       {#if card.fluffer_clerics}<div class="rc-line"><span class="rc-k">Fluffer</span>{card.fluffer_clerics}</div>{/if}
       {#if card.ch_chain && card.ch_chain.length}
         <div class="rc-ch">
-          {#each card.ch_chain as s}
+          {#each chMain as s}
             <div class="rc-chrow">
               <span class="rc-chnum">{s.label}</span>
               <span class="rc-chcleric">{s.cleric}</span>
@@ -79,6 +83,17 @@
               <span class="rc-chtank">{s.tank}</span>
             </div>
           {/each}
+          {#if chRamp.length}
+            <div class="rc-chgap"></div>
+            {#each chRamp as s}
+              <div class="rc-chrow">
+                <span class="rc-chnum ramp">{s.label}</span>
+                <span class="rc-chcleric">{s.cleric}</span>
+                <span class="rc-charrow">→</span>
+                <span class="rc-chtank">{s.tank}</span>
+              </div>
+            {/each}
+          {/if}
         </div>
       {/if}
     </div>
@@ -172,6 +187,8 @@
   .rc-ch { display: flex; flex-direction: column; gap: 2px; }
   .rc-chrow { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
   .rc-chnum { min-width: 34px; text-align: center; color: var(--bg); background: #0855e3; border-radius: 3px; font-weight: 700; font-size: 11px; }
+  .rc-chnum.ramp { background: #475569; }
+  .rc-chgap { height: 8px; }
   .rc-chcleric { color: var(--text-primary); }
   .rc-charrow { color: var(--text-muted); }
   .rc-chtank { color: var(--text-secondary); }
