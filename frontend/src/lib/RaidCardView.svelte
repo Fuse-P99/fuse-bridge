@@ -9,6 +9,16 @@
     ? 0
     : (liveHP != null && liveHP >= 0 ? liveHP : (card.target_hp ?? 100))
 
+  // Raiders grouped into 4 role columns.
+  const RAIDER_COLS = [
+    { title: 'Priests', classes: ['CLR', 'SHM', 'DRU'] },
+    { title: 'Casters', classes: ['MAG', 'WIZ', 'ENC', 'NEC'] },
+    { title: 'Tanks',   classes: ['WAR', 'SHD', 'PAL'] },
+    { title: 'DPS',     classes: ['ROG', 'MNK', 'RNG', 'BRD'] },
+  ]
+  $: raiderMap = Object.fromEntries(((card.raiders && card.raiders.groups) || []).map(g => [g.class, g]))
+  function groupFor(ab) { return raiderMap[ab] || { class: ab, members: [] } }
+
   // Always list these debuffs; attribute the most recent caster + a check when seen.
   const DEBUFF_ORDER = ['Tash', 'Malo', 'Slow', 'Cripple']
   function debuffCaster(key) {
@@ -74,28 +84,31 @@
     </div>
   </div>
 
-  <!-- Raiders (two columns) -->
+  <!-- Raiders (4 role columns) -->
   <div class="rc-col">
     <div class="rc-label">Raiders <span class="rc-total">{card.raiders ? card.raiders.total : 0}</span></div>
-    {#if card.raiders && card.raiders.groups}
-      <div class="rc-raiders-grid">
-        {#each card.raiders.groups as g}
-          <div class="rc-class">
-            <div class="rc-class-head" class:has={g.members && g.members.length}
-                 on:click={() => g.members && g.members.length && toggleClass(g.class)}>
-              <span class="rc-abbr">{g.class}</span>
-              <span class="rc-cnt">{g.members ? g.members.length : 0}</span>
-              {#if g.members && g.members.length}<span class="rc-chev2">{openClass[g.class] ? '▾' : '▸'}</span>{/if}
+    <div class="rc-raiders-cols">
+      {#each RAIDER_COLS as col}
+        <div class="rc-rcol">
+          <div class="rc-rcol-title">{col.title}</div>
+          {#each col.classes as ab}
+            <div class="rc-class">
+              <div class="rc-class-head" class:has={groupFor(ab).members.length}
+                   on:click={() => groupFor(ab).members.length && toggleClass(ab)}>
+                <span class="rc-abbr">{ab}</span>
+                <span class="rc-cnt">{groupFor(ab).members.length}</span>
+                {#if groupFor(ab).members.length}<span class="rc-chev2">{openClass[ab] ? '▾' : '▸'}</span>{/if}
+              </div>
+              {#if openClass[ab]}
+                {#each groupFor(ab).members as m}
+                  <div class="rc-member">{m.name}{#if m.level} ({m.level}){/if}{#if m.discord} · <span class="rc-disc">{m.discord}</span>{/if}</div>
+                {/each}
+              {/if}
             </div>
-            {#if openClass[g.class] && g.members}
-              {#each g.members as m}
-                <div class="rc-member">{m.name}{#if m.level} ({m.level}){/if}{#if m.discord} · <span class="rc-disc">{m.discord}</span>{/if}</div>
-              {/each}
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
+          {/each}
+        </div>
+      {/each}
+    </div>
   </div>
 
   <!-- Loot + Discord channel -->
@@ -129,9 +142,15 @@
 
   .rc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
   .rc-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .rc-raiders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+  .rc-raiders-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 14px; }
+  .rc-rcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rc-rcol-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 2px;
+  }
   @media (max-width: 720px) {
     .rc-grid, .rc-bottom { grid-template-columns: 1fr; }
+    .rc-raiders-cols { grid-template-columns: 1fr 1fr; }
   }
 
   .rc-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
