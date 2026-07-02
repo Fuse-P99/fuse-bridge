@@ -1,5 +1,19 @@
 export namespace main {
 	
+	export class BatphoneBanner {
+	    text: string;
+	    sent_at: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BatphoneBanner(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.text = source["text"];
+	        this.sent_at = source["sent_at"];
+	    }
+	}
 	export class CharEntry {
 	    name: string;
 	    match_count: number;
@@ -78,6 +92,91 @@ export namespace main {
 	        this.time = source["time"];
 	    }
 	}
+	export class RaidCHSlot {
+	    label: string;
+	    cleric: string;
+	    tank: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidCHSlot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.label = source["label"];
+	        this.cleric = source["cleric"];
+	        this.tank = source["tank"];
+	    }
+	}
+	export class RaidKV {
+	    name: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidKV(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.value = source["value"];
+	    }
+	}
+	export class RaidCard {
+	    target: string;
+	    status: string;
+	    killed_ago: string;
+	    active_main_tank: string;
+	    active_ramp_tank: string;
+	    main_tank_list: string;
+	    trash_tank_list: string;
+	    rampage_tank_list: string;
+	    bump_list: string;
+	    fluffer_clerics: string;
+	    debuffs: RaidKV[];
+	    ch_chain: RaidCHSlot[];
+	    loot: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RaidCard(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.target = source["target"];
+	        this.status = source["status"];
+	        this.killed_ago = source["killed_ago"];
+	        this.active_main_tank = source["active_main_tank"];
+	        this.active_ramp_tank = source["active_ramp_tank"];
+	        this.main_tank_list = source["main_tank_list"];
+	        this.trash_tank_list = source["trash_tank_list"];
+	        this.rampage_tank_list = source["rampage_tank_list"];
+	        this.bump_list = source["bump_list"];
+	        this.fluffer_clerics = source["fluffer_clerics"];
+	        this.debuffs = this.convertValues(source["debuffs"], RaidKV);
+	        this.ch_chain = this.convertValues(source["ch_chain"], RaidCHSlot);
+	        this.loot = source["loot"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class Settings {
 	    guild_chat: boolean;
 	    guild_motd: boolean;
@@ -188,6 +287,8 @@ export namespace main {
 	    detail: string;
 	    remaining: string;
 	    trackers: Tracker[];
+	    is_raid: boolean;
+	    raid?: RaidCard;
 	
 	    static createFrom(source: any = {}) {
 	        return new TimerEntry(source);
@@ -200,6 +301,8 @@ export namespace main {
 	        this.detail = source["detail"];
 	        this.remaining = source["remaining"];
 	        this.trackers = this.convertValues(source["trackers"], Tracker);
+	        this.is_raid = source["is_raid"];
+	        this.raid = this.convertValues(source["raid"], RaidCard);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -227,6 +330,8 @@ export namespace main {
 	    summary: string;
 	    updated: string;
 	    fetched_at: number;
+	    batphones: BatphoneBanner[];
+	    completed_raids: RaidCard[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TimersData(source);
@@ -240,6 +345,8 @@ export namespace main {
 	        this.summary = source["summary"];
 	        this.updated = source["updated"];
 	        this.fetched_at = source["fetched_at"];
+	        this.batphones = this.convertValues(source["batphones"], BatphoneBanner);
+	        this.completed_raids = this.convertValues(source["completed_raids"], RaidCard);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

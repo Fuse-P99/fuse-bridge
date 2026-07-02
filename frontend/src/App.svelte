@@ -22,7 +22,7 @@
     { id: 'characters', label: 'Characters' },
     { id: 'zones',      label: 'Zones'      },
     { id: 'map',        label: 'Map'        },
-    { id: 'timers',     label: 'Timers'     },
+    { id: 'raids',      label: 'Raids'      },
   ]
 
   onMount(async () => {
@@ -75,7 +75,7 @@
       <ZonesTab />
     {:else if $activeTab === 'map'}
       <MapTab />
-    {:else if $activeTab === 'timers'}
+    {:else if $activeTab === 'raids'}
       <TimersTab />
     {:else if $activeTab === 'clients'}
       <ClientsTab />
