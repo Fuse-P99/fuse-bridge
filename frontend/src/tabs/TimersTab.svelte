@@ -109,13 +109,14 @@
     discord_url: 'https://discord.com/channels/0/0',
   }
 
-  $: popped = (() => {
-    let list = (data && data.mobs) ? data.mobs.filter(m => m.status === 'popped') : []
-    if (admin) {
+  function computePopped(d, isAdmin) {
+    let list = (d && d.mobs) ? d.mobs.filter(m => m.status === 'popped') : []
+    if (isAdmin) {
       list = [{ name: sampleCard.target + ' (sample)', status: 'popped', is_raid: true, sample: true, raid: sampleCard, trackers: [] }, ...list]
     }
     return list
-  })()
+  }
+  $: popped = computePopped(data, admin)
   $: inWindow = (data && data.mobs) ? data.mobs.filter(m => m.status === 'in_window') : []
   $: upcoming = (data && data.mobs) ? data.mobs.filter(m => m.status === 'upcoming')  : []
 </script>
@@ -149,7 +150,7 @@
       <!-- Popped (current raid = gold swords + expandable card; admin sample prepended) -->
       {#if popped.length}
         <div class="group-title popped">Popped <span class="count">({popped.length})</span></div>
-        {#each popped as m}
+        {#each popped as m (m.name)}
           <div class="mob">
             <div class="mob-head" class:clickable={m.is_raid} on:click={() => { if (m.is_raid) toggleRaid(m.name) }}>
               {#if m.is_raid}
@@ -160,8 +161,10 @@
               <span class="mob-name" class:raid={m.is_raid}>{m.name}</span>
               {#if m.is_raid}<span class="chev chev-auto">{(openRaid[m.name] ?? true) ? '▾' : '▸'}</span>{/if}
             </div>
-            {#if m.is_raid && m.raid && (openRaid[m.name] ?? true)}
-              <RaidCardView card={m.raid} liveHP={raidLiveHP(mobHPs, m)} />
+            {#if m.is_raid && m.raid}
+              <div class:collapsed={!(openRaid[m.name] ?? true)}>
+                <RaidCardView card={m.raid} liveHP={raidLiveHP(mobHPs, m)} />
+              </div>
             {:else if !m.is_raid && m.detail}
               <div class="mob-detail">{m.detail}</div>
             {/if}
@@ -278,6 +281,7 @@
   .remaining { margin-left:auto; color:var(--text-secondary); font-size:12px; white-space:nowrap; }
   .chev { color:var(--text-muted); font-size:11px; margin-left:8px; }
   .chev-auto { margin-left:auto; }
+  .collapsed { display:none; }
 
   .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   .dot.popped    { background:#ff5555; }
