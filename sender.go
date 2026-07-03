@@ -1,0 +1,145 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sync"
+	"time"
+)
+
+const (
+	maxQueueSize   = 500
+	batchInterval  = 2 * time.Second
+	retryBaseDelay = 5 * time.Second
+	retryMaxDelay  = 5 * time.Minute
+)
+
+type Sender struct {
+	serverURL    string
+	apiKey       string
+	mu           sync.Mutex
+	queue        []string
+	client       *http.Client
+	wasConnected bool
+	FlushNow     chan struct{} // signal to flush immediately without waiting for the ticker
+	OnConnect    func()       // called when a send succeeds after being disconnected
+	OnDisconnect func()       // called when a send fails after being connected
+}
+
+func NewSender(serverURL, apiKey string) *Sender {
+	return &Sender{
+		serverURL: serverURL,
+		apiKey:    apiKey,
+		client:    &http.Client{Timeout: 10 * time.Second},
+		FlushNow:  make(chan struct{}, 8),
+	}
+}
+
+func (s *Sender) Enqueue(line string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.queue) >= maxQueueSize {
+		s.queue = s.queue[1:] // drop oldest to make room
+	}
+	s.queue = append(s.queue, line)
+}
+
+// Run reads from the lines channel, batches them, and sends to the server.
+// Retries with exponential backoff on failure.
+func (s *Sender) Run(lines <-chan string, done <-chan struct{}) {
+	// Startup ping: verify connectivity and light up the tray icon immediately,
+	// independent of whether any log lines have been seen yet.
+	if err := s.send([]string{}); err == nil {
+		s.wasConnected = true
+		if s.OnConnect != nil {
+			s.OnConnect()
+		}
+	} else {
+		addStatus("Server ping failed: %v", err)
+		if s.OnDisconnect != nil {
+			s.OnDisconnect()
+		}
+	}
+
+	ticker := time.NewTicker(batchInterval)
+	defer ticker.Stop()
+	backoff := retryBaseDelay
+
+	trySend := func() {
+		s.mu.Lock()
+		if len(s.queue) == 0 {
+			s.mu.Unlock()
+			return
+		}
+		batch := make([]string, len(s.queue))
+		copy(batch, s.queue)
+		s.mu.Unlock()
+
+		if err := s.send(batch); err != nil {
+			addStatus("Send failed (%v), retrying in %s", err, backoff)
+			if s.wasConnected {
+				s.wasConnected = false
+				if s.OnDisconnect != nil {
+					s.OnDisconnect()
+				}
+			}
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > retryMaxDelay {
+				backoff = retryMaxDelay
+			}
+		} else {
+			s.mu.Lock()
+			s.queue = s.queue[len(batch):]
+			s.mu.Unlock()
+			backoff = retryBaseDelay
+			if !s.wasConnected {
+				s.wasConnected = true
+				if s.OnConnect != nil {
+					s.OnConnect()
+				}
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-done:
+			return
+		case line := <-lines:
+			s.Enqueue(line)
+		case <-s.FlushNow:
+			trySend()
+		case <-ticker.C:
+			trySend()
+		}
+	}
+}
+
+type submitPayload struct {
+	Lines   []string `json:"lines"`
+	Toon    string   `json:"toon"`
+	Version string   `json:"version"`
+}
+
+func (s *Sender) send(lines []string) error {
+	body, _ := json.Marshal(submitPayload{Lines: lines, Toon: currentCharName, Version: clientVersion})
+	req, err := http.NewRequest(http.MethodPost, s.serverURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authHeader())
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}
