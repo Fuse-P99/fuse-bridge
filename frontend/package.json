@@ -1,0 +1,16 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/genMapManifest.mjs && vite",
+    "build": "node scripts/genMapManifest.mjs && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "svelte": "^4.2.18",
+    "vite": "^5.4.2"
+  }
+}
