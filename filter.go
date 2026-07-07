@@ -1,0 +1,158 @@
+package main
+
+import (
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+)
+
+var (
+	guildChatPattern   = regexp.MustCompile(`tells the guild, `)
+	guildSelfPattern   = regexp.MustCompile(`You say to your guild, `)
+	guildMotdPattern   = regexp.MustCompile(`GUILD MOTD:`)
+	broadcastPattern   = regexp.MustCompile(`BROADCASTS, `)
+	serverMsgPattern   = regexp.MustCompile(`<\[SERVER MESSAGE\]>:`)
+	quakePattern       = regexp.MustCompile(`(?:You feel the (?:need to get somewhere safe quickly|sudden urge to seek a safe location)|The gods have awoken|The Gods of Norrath emit|The Gods strike all|Minions gather)`)
+	engagePattern      = regexp.MustCompile(` engages \w+!`)
+	slainPattern      = regexp.MustCompile(` has been slain by .+!`)
+	slainMobExtractRE = regexp.MustCompile(`(?:\t|] )(.+?) has been slain by`)
+	enteredZonePattern = regexp.MustCompile(`You have entered (.+)\.`)
+	// /loc output: "Your Location is <Y>, <X>, <Z>" (Y first, X second, Z elevation).
+	locPattern = regexp.MustCompile(`Your Location is ([-\d.]+), ([-\d.]+), ([-\d.]+)`)
+	// /who footer: "There are N players in <Zone>." — for a plain /who this names
+	// the player's current zone. ("EverQuest" means /who all, not a real zone.)
+	whoFooterZonePattern = regexp.MustCompile(`There (?:is|are) \d+ players? in (.+)\.`)
+	// Matches /who output lines: header, player entries (including LINKDEAD/AFK prefixes), and footer.
+	// Footer handles both "There are N players" and the single-player "There is 1 player".
+	whoPattern = regexp.MustCompile(`(?:Players (?:on|in) EverQuest:|There (?:is|are) \d+ players? in|\[(?:\d+ [A-Za-z ]+|ANONYMOUS|ROLEPLAY)\])`)
+)
+
+// /who output is forwarded without a client-side rate limit. The server
+// deduplicates identical /who lines (5-minute TTL), so repeated identical
+// snapshots cost nothing, while distinct /who for different zones — all valuable
+// for the zone roster — are no longer suppressed.
+
+// loginTime is set whenever "Welcome to EverQuest!" appears in the log.
+// A MOTD seen within loginSuppressWindow of a login is suppressed — it's the
+// automatic login MOTD, not an officer update.
+var loginTime time.Time
+
+const loginSuppressWindow = 30 * time.Second
+
+// RecordLoginLine checks the line for the login marker and updates loginTime.
+// Must be called for every raw line before ShouldForward.
+func RecordLoginLine(line string) {
+	if strings.Contains(line, "Welcome to EverQuest!") {
+		loginTime = time.Now()
+		addStatus("Login detected — suppressing next MOTD")
+	}
+}
+
+// ShouldForward returns true if the log line should be sent to the server,
+// based on the line content and current user settings.
+func ShouldForward(line string) bool {
+	s := GetSettings()
+	if s.GuildChat && (guildChatPattern.MatchString(line) || guildSelfPattern.MatchString(line)) {
+		return true
+	}
+	if s.GuildMotd && guildMotdPattern.MatchString(line) {
+		// Suppress the automatic MOTD shown on every login.
+		if time.Since(loginTime) < loginSuppressWindow {
+			return false
+		}
+		return true
+	}
+	if s.Broadcasts && broadcastPattern.MatchString(line) {
+		return true
+	}
+	if s.ServerMessages && serverMsgPattern.MatchString(line) {
+		return true
+	}
+	if s.QuakeMessages && quakePattern.MatchString(line) {
+		return true
+	}
+	if s.EngageMessages && engagePattern.MatchString(line) {
+		return true
+	}
+	if s.WhoOutput && whoPattern.MatchString(line) {
+		return true
+	}
+	if s.CharacterLocations && enteredZonePattern.MatchString(line) {
+		return true
+	}
+	if s.SlainMessages && isRaidMobSlain(line) {
+		return true
+	}
+	return false
+}
+
+// isRaidMobSlain returns true when the slain mob name matches a mob flagged
+// as a raid mob in the locally cached list fetched from the server.
+func isRaidMobSlain(line string) bool {
+	if !slainPattern.MatchString(line) {
+		return false
+	}
+	m := slainMobExtractRE.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return false
+	}
+	return IsRaidMob(m[1])
+}
+
+// ExtractZone returns the zone name from a "You have entered X." line, or "".
+func ExtractZone(line string) string {
+	m := enteredZonePattern.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// ExtractLoc parses a "/loc" line ("Your Location is Y, X, Z") and returns the
+// EQ world coordinates (y, x, z) and ok=true on a match. Note the log order is
+// Y, X, Z; the returned values are reordered to (y, x, z).
+func ExtractLoc(line string) (y, x, z float64, ok bool) {
+	m := locPattern.FindStringSubmatch(line)
+	if len(m) < 4 {
+		return 0, 0, 0, false
+	}
+	y = parseFloat(m[1])
+	x = parseFloat(m[2])
+	z = parseFloat(m[3])
+	return y, x, z, true
+}
+
+func parseFloat(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
+}
+
+// ExtractWhoZone returns the current zone from a /who footer line ("There are N
+// players in <Zone>."), or "" if the line isn't a footer or names "EverQuest"
+// (which indicates /who all rather than a single-zone /who).
+func ExtractWhoZone(line string) string {
+	m := whoFooterZonePattern.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return ""
+	}
+	zone := strings.TrimSpace(m[1])
+	if strings.EqualFold(zone, "EverQuest") {
+		return ""
+	}
+	return zone
+}
+
+// rewriteSelfGuildSay converts the player's own guild-say format into the
+// third-person format the server expects.
+// "[...] You say to your guild, 'hi'" → "[...] Charactername tells the guild, 'hi'"
+func rewriteSelfGuildSay(line string) string {
+	if !guildSelfPattern.MatchString(line) {
+		return line
+	}
+	name := currentCharName
+	if name == "" {
+		return line
+	}
+	return strings.Replace(line, "You say to your guild, ", name+" tells the guild, ", 1)
+}
