@@ -1,0 +1,345 @@
+<script>
+  // "Other Timers" — event/raid countdown bars sourced from the local trigger
+  // engine, filtered by the shared-package folder that owns them. Today that
+  // means the Ring War waves + Narandi timers on the event raid card; the
+  // filter table is deliberately data-driven so mob AE timers for standard
+  // raids can join later without touching the plumbing.
+  //
+  // Used two ways:
+  //   - inside RaidCardView (card passed in): filters by the card's event_key.
+  //   - as the "Other Timers" special overlay (no card): polls GetTimers to
+  //     find the live event raid and uses its key.
+  // Hidden entirely (hasAny=false) when nothing matches — an empty timer
+  // panel is dead space on the card and a translucent nothing as an overlay.
+  import { onMount, onDestroy } from "svelte";
+  import { Events } from "@wailsio/runtime";
+  import { GetTriggerState, GetTimers } from "../../bindings/FuseBridge/app.js";
+
+  export let card = null;
+  export let showLabel = true;
+  export let hasAny = false;
+
+  // Folder filters per event key. Each entry is a list of alternatives; an
+  // alternative is a chain of lowercase substrings that must appear, in
+  // order, across the timer's folder path. ("5 - Ring War" matches
+  // ["ring war"].)
+  const FOLDER_FILTERS = {
+    ringwar: [["ring war"]],
+    // Future: sky/hot island- or wing-specific timer folders, and mob-keyed
+    // AE folders for standard raids.
+  };
+
+  // Ring War spawn schedule, transcribed from the guild's shared trigger set
+  // ("05 - Raiding > 02 - Raid Spells/AoEs > 3 - Velious > 5 - Ring War").
+  // All offsets are seconds from THAT ocean's kickoff shout, which the server
+  // timestamps and ships as card.ocean_starts.
+  //
+  //   waves        — the ocean's seven wave spawns (210s apart after the first)
+  //   nextOceanW1  — wave 1 of the FOLLOWING ocean (the "Wave 7 Break" timer,
+  //                  named "2 - 1"/"3 - 1" in the trigger set)
+  //   narandi      — Narandi's spawn
+  //
+  // The three narandi values are independent paths to the same instant and
+  // agree within 10s, so re-anchoring on each new shout tightens the estimate
+  // rather than jumping it.
+  const RW_SCHEDULE = {
+    1: {
+      waves: [210, 420, 630, 840, 1050, 1260, 1470],
+      nextOceanW1: 1982,
+      narandi: 5526,
+    },
+    2: {
+      waves: [270, 480, 690, 900, 1110, 1320, 1530],
+      nextOceanW1: 2050,
+      narandi: 3815,
+    },
+    3: {
+      waves: [272, 482, 692, 902, 1112, 1322, 1532],
+      nextOceanW1: 0, // ocean 3 is the last — Narandi follows
+      narandi: 2045,
+    },
+  };
+
+  // Trigger timers that just restate the schedule above ("1 - 5", "Narandi",
+  // "4 - Narandi"). The derived rows say the same thing in one line each, so
+  // these are dropped to keep the panel readable; every other Ring War timer
+  // (Turn in Timer, Time until CHARGE!, …) still shows.
+  const RW_REDUNDANT = /^(?:\d+\s*-\s*\d+|(?:\d+\s*-\s*)?narandi.*)$/i;
+
+  let timers = [];
+  let now = Date.now();
+  let liveEventKey = ""; // popout mode: from GetTimers().event_raid
+  let liveOceanStarts = null;
+  let pollTimer, dataTimer, animReq, offTriggers;
+  let polling = false,
+    pollAgain = false;
+
+  $: filterKey = card ? card.event_key || "" : liveEventKey;
+  $: chains = FOLDER_FILTERS[filterKey] || [];
+  $: oceanStarts = card ? card.ocean_starts : liveOceanStarts;
+
+  // The newest ocean to have shouted anchors everything: each shout is a fresh
+  // measurement of where we are, so later ones supersede earlier estimates.
+  $: anchor = (() => {
+    if (filterKey !== "ringwar" || !oceanStarts) return null;
+    for (let n = 3; n >= 1; n--) {
+      const at = Number(oceanStarts[n] || 0);
+      if (at > 0) return { ocean: n, at, sched: RW_SCHEDULE[n] };
+    }
+    return null;
+  })();
+
+  // The next thing to spawn: the current ocean's next wave, or — once its
+  // seventh has come — wave 1 of the ocean after it. In ocean 3 the waves run
+  // out and Narandi is next, which the dedicated row below already covers.
+  $: nextSpawn = (() => {
+    if (!anchor) return null;
+    const { ocean, at, sched } = anchor;
+    let prev = at;
+    for (let i = 0; i < sched.waves.length; i++) {
+      const t = at + sched.waves[i] * 1000;
+      if (t > now) {
+        return {
+          label: `Ocean ${ocean} - Wave ${i + 1}`,
+          at: t,
+          from: prev,
+        };
+      }
+      prev = t;
+    }
+    if (sched.nextOceanW1 > 0) {
+      const t = at + sched.nextOceanW1 * 1000;
+      if (t > now)
+        return { label: `Ocean ${ocean + 1} - Wave 1`, at: t, from: prev };
+    }
+    return null;
+  })();
+
+  // Narandi's spawn — shown from the first shout onward, and kept on screen
+  // after it lands so the card doesn't go quiet at the moment he arrives.
+  $: narandi = anchor
+    ? { label: "Narandi", at: anchor.at + anchor.sched.narandi * 1000 }
+    : null;
+
+  $: derived = [
+    ...(nextSpawn
+      ? [
+          {
+            key: "next",
+            label: nextSpawn.label,
+            at: nextSpawn.at,
+            from: nextSpawn.from,
+          },
+        ]
+      : []),
+    ...(narandi
+      ? [
+          {
+            key: "narandi",
+            label: narandi.label,
+            at: narandi.at,
+            from: anchor.at,
+            done: narandi.at <= now,
+          },
+        ]
+      : []),
+  ];
+
+  function pathMatches(path, chain) {
+    const parts = (path || []).map((p) => (p || "").toLowerCase());
+    let i = 0;
+    for (const want of chain) {
+      for (; i < parts.length; i++) {
+        if (parts[i].includes(want)) break;
+      }
+      if (i >= parts.length) return false;
+      i++;
+    }
+    return true;
+  }
+
+  $: active = chains.length
+    ? timers
+        .filter(
+          (t) =>
+            t.ends_at_ms > now &&
+            chains.some((c) => pathMatches(t.path, c)) &&
+            !(filterKey === "ringwar" && RW_REDUNDANT.test((t.name || "").trim())),
+        )
+        .sort((a, b) => a.ends_at_ms - b.ends_at_ms)
+    : [];
+  $: hasAny = active.length > 0 || derived.length > 0;
+
+  function fmtRemain(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(s / 60);
+    return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }
+  function barFrac(t) {
+    const total = t.ends_at_ms - t.started_at_ms;
+    if (total <= 0) return 0;
+    return Math.max(0, Math.min(1, (t.ends_at_ms - now) / total));
+  }
+  // Derived rows drain across the gap since the PREVIOUS milestone (the last
+  // wave, or the ocean shout), so a wave bar refills each cycle instead of
+  // creeping down one long slope.
+  function derivedFrac(d) {
+    const total = d.at - d.from;
+    if (total <= 0) return 0;
+    return Math.max(0, Math.min(1, (d.at - now) / total));
+  }
+
+  async function poll() {
+    if (polling) {
+      pollAgain = true;
+      return;
+    }
+    polling = true;
+    try {
+      const s = await GetTriggerState();
+      timers = s.timers || [];
+    } catch {
+      /* keep last */
+    }
+    polling = false;
+    if (pollAgain) {
+      pollAgain = false;
+      poll();
+    }
+  }
+
+  // Popout mode only: resolve which event raid is live (its key picks the
+  // folder filter). The card path skips this — the parent owns the card.
+  async function pollContext() {
+    if (card) return;
+    try {
+      const d = await GetTimers();
+      liveEventKey = (d && d.event_raid && d.event_raid.event_key) || "";
+      liveOceanStarts = (d && d.event_raid && d.event_raid.ocean_starts) || null;
+    } catch {
+      /* keep last */
+    }
+  }
+
+  function animLoop() {
+    now = Date.now();
+    animReq = requestAnimationFrame(animLoop);
+  }
+
+  onMount(async () => {
+    await poll();
+    await pollContext();
+    offTriggers = Events.On("triggers-changed", poll);
+    pollTimer = setInterval(poll, 1000);
+    if (!card) dataTimer = setInterval(pollContext, 5000);
+    animLoop();
+  });
+  onDestroy(() => {
+    clearInterval(pollTimer);
+    if (dataTimer) clearInterval(dataTimer);
+    if (offTriggers) offTriggers();
+    if (animReq) cancelAnimationFrame(animReq);
+  });
+</script>
+
+<div class="rc-col">
+  {#if showLabel && hasAny}<div class="rc-label">Other Timers</div>{/if}
+  <!-- Derived Ring War rows first: what spawns next, and Narandi. These are
+       always present once an ocean has shouted, so the raid always has an
+       answer to "what's coming and when" without reading seven bars. -->
+  {#each derived as d (d.key)}
+    <div class="obar" class:sched={true} class:done={d.done}>
+      <div
+        class="obar-fill"
+        style="width:{derivedFrac(d) * 100}%"
+      ></div>
+      <span class="obar-name">{d.label}</span>
+      <span class="obar-time"
+        >{d.done ? "UP" : fmtRemain(d.at - now)}</span
+      >
+    </div>
+  {/each}
+  {#each active as t (t.id)}
+    <div class="obar">
+      <div class="obar-fill" style="width:{barFrac(t) * 100}%"></div>
+      <span class="obar-name">{t.name}</span>
+      <span class="obar-time">{fmtRemain(t.ends_at_ms - now)}</span>
+    </div>
+  {/each}
+</div>
+
+<style>
+  .rc-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .rc-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #e3a008;
+    margin-bottom: 3px;
+  }
+  /* Same bar anatomy as the trigger timer overlays (PopoutTimers), fixed
+     height and accent color — these bars live inside the raid card, not a
+     styleable overlay category. */
+  .obar {
+    position: relative;
+    height: 20px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .obar-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(79, 179, 169, 0.55);
+  }
+  /* Schedule rows are the headline — gold, to separate them from the
+     trigger-engine bars below and match the event card's accent. */
+  .obar.sched {
+    background: rgba(227, 160, 8, 0.12);
+  }
+  .obar.sched .obar-fill {
+    background: rgba(227, 160, 8, 0.45);
+  }
+  .obar.sched .obar-name {
+    color: #f5d67b;
+  }
+  /* Narandi already up: no bar left to drain, just the standing "UP" state. */
+  .obar.done .obar-fill {
+    width: 100% !important;
+    background: rgba(227, 160, 8, 0.28);
+  }
+  .obar.done .obar-time {
+    color: #f5d67b;
+    font-weight: 700;
+  }
+  .obar-name,
+  .obar-time {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    white-space: nowrap;
+  }
+  .obar-name {
+    left: 8px;
+    max-width: 68%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .obar-time {
+    right: 8px;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+</style>
