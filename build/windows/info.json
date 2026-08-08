@@ -1,0 +1,17 @@
+{
+  "fixed": {
+    "file_version": "2.3.5469.0"
+  },
+  "info": {
+    "0000": {
+      "ProductVersion": "2.3.5469",
+      "CompanyName": "Fuse",
+      "FileDescription": "FuseBridge",
+      "LegalCopyright": "Fuse",
+      "ProductName": "FuseBridge",
+      "InternalName": "FuseBridge",
+      "OriginalFilename": "FuseBridge.exe",
+      "Comments": "Raid and log companion for Project 1999. https://github.com/Fuse-P99/fuse-bridge"
+    }
+  }
+}
