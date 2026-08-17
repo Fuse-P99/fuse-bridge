@@ -1,0 +1,858 @@
+package main
+
+import (
+	"encoding/json"
+	"encoding/xml"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+// GINA trigger config storage. The app keeps its OWN copy of the GINA-format
+// XML (imported once from the user's GINAConfig.xml) at triggersPath() and
+// never writes GINA's original file — GINA rewrites that file itself, so two
+// writers would clobber each other. Re-importing overwrites the local copy.
+//
+// The Trigger/TriggerGroup structs model the full GINA field set so edits
+// round-trip losslessly; the Settings/BehaviorGroups/Categories/Characters
+// sections are preserved verbatim as raw inner XML (Characters is additionally
+// parsed read-only for the per-character enabled-group sets).
+
+// ginaBool marshals as "True"/"False" to match GINA's .NET XmlSerializer
+// output (Go's ParseBool already accepts those on read).
+type ginaBool bool
+
+func (b ginaBool) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	s := "False"
+	if b {
+		s = "True"
+	}
+	return e.EncodeElement(s, start)
+}
+
+func (b *ginaBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var s string
+	if err := d.DecodeElement(&s, &start); err != nil {
+		return err
+	}
+	*b = ginaBool(strings.EqualFold(strings.TrimSpace(s), "true"))
+	return nil
+}
+
+// GinaEndTrigger is the nested TimerEndingTrigger/TimerEndedTrigger payload
+// (what to do when a timer is about to end / has ended).
+type GinaEndTrigger struct {
+	UseText         ginaBool `xml:"UseText"`
+	DisplayText     string   `xml:"DisplayText"`
+	UseTextToVoice  ginaBool `xml:"UseTextToVoice"`
+	InterruptSpeech ginaBool `xml:"InterruptSpeech"`
+	TextToVoiceText string   `xml:"TextToVoiceText"`
+	PlayMediaFile   ginaBool `xml:"PlayMediaFile"`
+	MediaFileName   string   `xml:"MediaFileName,omitempty"`
+}
+
+type GinaEarlyEnder struct {
+	EarlyEndText string   `xml:"EarlyEndText"`
+	EnableRegex  ginaBool `xml:"EnableRegex"`
+}
+
+type GinaEarlyEnders struct {
+	Enders []GinaEarlyEnder `xml:"EarlyEnder"`
+}
+
+// GinaTrigger models every Trigger field GINA writes (verified against the
+// user's config) so unedited fields survive a save. Only a subset drives the
+// engine; the rest ride along for future iterations.
+type GinaTrigger struct {
+	ID                       int              `xml:"-"` // session id for UI addressing (not persisted)
+	Name                     string           `xml:"Name"`
+	TriggerText              string           `xml:"TriggerText"`
+	Comments                 string           `xml:"Comments"`
+	EnableRegex              ginaBool         `xml:"EnableRegex"`
+	UseText                  ginaBool         `xml:"UseText"`
+	DisplayText              string           `xml:"DisplayText"`
+	CopyToClipboard          ginaBool         `xml:"CopyToClipboard"`
+	ClipboardText            string           `xml:"ClipboardText"`
+	UseTextToVoice           ginaBool         `xml:"UseTextToVoice"`
+	InterruptSpeech          ginaBool         `xml:"InterruptSpeech"`
+	TextToVoiceText          string           `xml:"TextToVoiceText"`
+	PlayMediaFile            ginaBool         `xml:"PlayMediaFile"`
+	MediaFileName            string           `xml:"MediaFileName,omitempty"`
+	TimerType                string           `xml:"TimerType"`
+	TimerName                string           `xml:"TimerName"`
+	RestartBasedOnTimerName  ginaBool         `xml:"RestartBasedOnTimerName"`
+	TimerMillisecondDuration int64            `xml:"TimerMillisecondDuration"`
+	TimerDuration            int              `xml:"TimerDuration"`
+	TimerVisibleDuration     int              `xml:"TimerVisibleDuration"`
+	TimerStartBehavior       string           `xml:"TimerStartBehavior"`
+	TimerEndingTime          int              `xml:"TimerEndingTime"`
+	UseTimerEnding           ginaBool         `xml:"UseTimerEnding"`
+	UseTimerEnded            ginaBool         `xml:"UseTimerEnded"`
+	TimerEndingTrigger       *GinaEndTrigger  `xml:"TimerEndingTrigger,omitempty"`
+	TimerEndedTrigger        *GinaEndTrigger  `xml:"TimerEndedTrigger,omitempty"`
+	UseCounterResetTimer     ginaBool         `xml:"UseCounterResetTimer"`
+	CounterResetDuration     int              `xml:"CounterResetDuration"`
+	Category                 string           `xml:"Category"`
+	Modified                 string           `xml:"Modified"`
+	UseFastCheck             ginaBool         `xml:"UseFastCheck"`
+	TimerEarlyEnders         *GinaEarlyEnders `xml:"TimerEarlyEnders,omitempty"`
+}
+
+type GinaGroup struct {
+	Name            string         `xml:"Name"`
+	Comments        string         `xml:"Comments"`
+	SelfCommented   ginaBool       `xml:"SelfCommented"`
+	GroupID         int            `xml:"GroupId"`
+	EnableByDefault ginaBool       `xml:"EnableByDefault"`
+	Groups          []*GinaGroup   `xml:"TriggerGroups>TriggerGroup,omitempty"`
+	Triggers        []*GinaTrigger `xml:"Triggers>Trigger,omitempty"`
+}
+
+// rawXML preserves a section verbatim across the unmarshal→marshal round trip.
+type rawXML struct {
+	Inner []byte `xml:",innerxml"`
+}
+
+type ginaConfig struct {
+	XMLName        xml.Name     `xml:"Configuration"`
+	Settings       rawXML       `xml:"Settings"`
+	BehaviorGroups rawXML       `xml:"BehaviorGroups"`
+	Categories     rawXML       `xml:"Categories"`
+	Groups         []*GinaGroup `xml:"TriggerGroups>TriggerGroup"`
+	Characters     rawXML       `xml:"Characters"`
+}
+
+// ginaCharacter is the read-only view of a <Character> entry: which trigger
+// groups that character has enabled (flat, explicit GroupId list).
+type ginaCharacter struct {
+	Name        string `xml:"Name"`
+	LogFilePath string `xml:"LogFilePath"`
+	Groups      []struct {
+		GroupID string `xml:"GroupId,attr"`
+	} `xml:"TriggerGroups>TriggerGroup"`
+}
+
+// The trigger tree has exactly two top-level groups:
+//   - Fuse Triggers: the guild's shared set, downloaded from the server and
+//     edited only by officers (edits write through to the server and propagate
+//     to everyone). Cached locally so it works offline.
+//   - Personal: the user's own set, local to this machine, editable by anyone.
+//
+// Non-linked users have only Personal.
+const (
+	// Stable GroupIds for the two roots (kept clear of GINA's ranges and of
+	// nextGroupIDLocked's 1,000,000+ allocations).
+	fuseRootGroupID     = 2000000
+	personalRootGroupID = 2000001
+	fuseTriggersName    = "Fuse Triggers"
+	personalName        = "Personal"
+)
+
+var (
+	trigStoreMu   sync.Mutex
+	trigCfg       *ginaConfig          // assembled from fuseRoot + personalRoot
+	trigByID      map[int]*GinaTrigger // session trigger id → trigger
+	trigGroupOf   map[int]*GinaGroup   // session trigger id → containing group
+	groupByID     map[int]*GinaGroup   // GroupId → group
+	groupParentOf map[int]*GinaGroup   // GroupId → parent group (nil for roots)
+	trigNextID    int                  // next session trigger id
+
+	fuseRoot     *GinaGroup // "Fuse Triggers" subtree (nil until linked+loaded)
+	personalRoot *GinaGroup // "Personal" subtree (always present)
+	fuseVersion  int        // server version this local Fuse set is BASED ON (0 = unseeded)
+	// fuseDirty marks unpublished officer edits: the local Fuse set has diverged
+	// from server version fuseVersion. While set, the sync never overwrites the
+	// local copy — the officer resolves it with PublishFuseTriggers (upload,
+	// version bumps for everyone) or RevertFuseTriggers (re-adopt server copy).
+	// Persisted in the fuse cache so edits survive a restart. Non-officers can
+	// never become dirty (edits are rejected).
+	fuseDirty bool
+	// fuseServerVersion is the newest version seen ON the server (≥ fuseVersion
+	// while dirty if another officer published in the meantime). Display only.
+	fuseServerVersion int
+
+	// User on/off toggles from the edit tree, layered over the rule-based
+	// defaults, stored per character. Groups key by GroupId; triggers by
+	// "GroupId/Name" (triggers have no persistent id of their own). Persisted in
+	// trigger_toggles.json. Read/written through trigToggleSetForLocked, never
+	// directly, so every access is explicit about whose settings it touches.
+	trigTogglesAll = map[string]*trigToggleSet{} // lower(char) → that toon's overrides
+	trigToggleSeed *trigToggleSet                // pre-per-character overrides, see below
+)
+
+func triggersDir() string { return filepath.Dir(settingsPath()) }
+
+// legacyTriggersPath is the pre-server GINA import copy (migrated on first run).
+func legacyTriggersPath() string { return filepath.Join(triggersDir(), "triggers.xml") }
+
+// fuseCachePath caches the server's Fuse Triggers set (version + XML) so it
+// works offline and shows instantly before the sync completes.
+func fuseCachePath() string { return filepath.Join(triggersDir(), "fuse_triggers.json") }
+
+// personalPath stores the user's local Personal trigger subtree.
+func personalPath() string { return filepath.Join(triggersDir(), "personal_triggers.xml") }
+
+// fuseCacheFile is the on-disk form of the cached Fuse Triggers set.
+type fuseCacheFile struct {
+	Version int    `json:"version"`
+	XML     string `json:"xml"`
+	// Dirty preserves "unpublished officer edits" across restarts.
+	Dirty bool `json:"dirty,omitempty"`
+}
+
+// LoadTriggers assembles the trigger tree from the local Personal file and the
+// cached Fuse set, migrating a legacy GINA import on first run, then rebuilds
+// the engine's active set. The server sync (SyncFuseTriggers) runs separately.
+func LoadTriggers() {
+	trigStoreMu.Lock()
+	migrateLegacyLocked()
+	if personalRoot == nil {
+		personalRoot = loadPersonalLocked()
+	}
+	if fuseRoot == nil {
+		fuseRoot, fuseVersion, fuseDirty = loadFuseCacheLocked()
+		fuseServerVersion = fuseVersion
+	}
+	assembleLocked()
+	// Pull any locally-present media into the media dir and scrub machine-specific
+	// paths out of the stored triggers down to bare file names.
+	localizeAndNormalizeMediaLocked()
+	loadTrigTogglesLocked()
+	loadTrigMutesLocked()
+	loadTrigClipsLocked()
+	trigStoreMu.Unlock()
+	loadCatStyles() // category colors/fonts (own lock — must not be held here)
+	RebuildTriggerActivation()
+}
+
+// assembleLocked rebuilds trigCfg from fuseRoot (only when linked) + personalRoot
+// and refreshes the lookup indexes. Caller holds trigStoreMu.
+func assembleLocked() {
+	if personalRoot == nil {
+		personalRoot = newPersonalRoot()
+	}
+	var groups []*GinaGroup
+	if IsLinked() && fuseRoot != nil {
+		fuseRoot.Name = fuseTriggersName // enforce the rename regardless of source
+		fuseRoot.GroupID = fuseRootGroupID
+		groups = append(groups, fuseRoot)
+	}
+	personal := personalRoot
+	if ViewAsActive() == "noconfig" {
+		// "Linked User — No Config" preview: a fresh member has no personal
+		// triggers, so present an empty throwaway root. The real personalRoot
+		// stays untouched (and savePersonalLocked serializes THAT var, so
+		// anything edited into the throwaway can never reach disk).
+		personal = newPersonalRoot()
+	}
+	groups = append(groups, personal)
+	trigCfg = &ginaConfig{Groups: groups}
+	rebuildTriggerIndexLocked()
+}
+
+func newPersonalRoot() *GinaGroup {
+	return &GinaGroup{Name: personalName, GroupID: personalRootGroupID}
+}
+
+// loadPersonalLocked reads the Personal subtree, or returns a fresh empty one.
+func loadPersonalLocked() *GinaGroup {
+	data, err := os.ReadFile(personalPath())
+	if err != nil {
+		return newPersonalRoot()
+	}
+	var g GinaGroup
+	if xml.Unmarshal(data, &g) != nil {
+		return newPersonalRoot()
+	}
+	g.Name = personalName
+	g.GroupID = personalRootGroupID
+	return &g
+}
+
+// loadFuseCacheLocked reads the cached Fuse set + its version, or (nil, 0).
+func loadFuseCacheLocked() (*GinaGroup, int, bool) {
+	data, err := os.ReadFile(fuseCachePath())
+	if err != nil {
+		return nil, 0, false
+	}
+	var f fuseCacheFile
+	if json.Unmarshal(data, &f) != nil || f.XML == "" {
+		return nil, 0, false
+	}
+	var g GinaGroup
+	if xml.Unmarshal([]byte(f.XML), &g) != nil {
+		return nil, 0, false
+	}
+	return &g, f.Version, f.Dirty
+}
+
+// migrateLegacyLocked one-time-migrates a pre-server triggers.xml: the "Fuse"
+// package becomes the seed Fuse set (renamed "Fuse Triggers"); every other
+// top-level group moves under Personal. The legacy file is then retired so this
+// runs only once. No-op if already migrated or nothing to migrate.
+func migrateLegacyLocked() {
+	if fuseRoot != nil || personalRoot != nil {
+		return
+	}
+	data, err := os.ReadFile(legacyTriggersPath())
+	if err != nil {
+		return
+	}
+	var cfg ginaConfig
+	if xml.Unmarshal(data, &cfg) != nil {
+		return
+	}
+	personal := newPersonalRoot()
+	for _, g := range cfg.Groups {
+		if fuseRoot == nil && strings.HasPrefix(strings.ToLower(strings.TrimSpace(g.Name)), "fuse") {
+			g.Name = fuseTriggersName
+			g.GroupID = fuseRootGroupID
+			fuseRoot = g
+			continue
+		}
+		personal.Groups = append(personal.Groups, g)
+	}
+	personalRoot = personal
+	fuseVersion = 0 // unseeded locally; an officer will publish it on first sync
+	_ = savePersonalLocked()
+	if fuseRoot != nil {
+		_ = saveFuseCacheLocked()
+	}
+	// Retire the legacy file so we don't migrate again.
+	_ = os.Rename(legacyTriggersPath(), legacyTriggersPath()+".migrated")
+	addStatus("Triggers: migrated your imported set to Fuse Triggers + Personal")
+}
+
+// ── user enable/disable toggles (edit-tree sliders) ─────────────────────────
+
+// trigToggleSet is one character's slider overrides. An absent entry (or an
+// empty set) means "no overrides" — the character falls through to the
+// rule-based defaults, i.e. Buffs/Debuffs/Raiding plus their own class.
+// Groups key by GroupId; encoding/json writes integer map keys as JSON strings,
+// which is byte-identical to the pre-per-character file's "groups" object.
+type trigToggleSet struct {
+	Groups   map[int]bool    `json:"groups"`   // GroupId → on/off
+	Triggers map[string]bool `json:"triggers"` // "GroupId/Name" → on/off
+}
+
+type trigTogglesFile struct {
+	Chars map[string]*trigToggleSet `json:"chars"`
+	Seed  *trigToggleSet            `json:"seed,omitempty"`
+	// Schema versions the stored overrides so load-time migrations run exactly
+	// once (see loadTrigTogglesLocked). Absent (0) = pre-collective-semantics.
+	Schema int `json:"schema,omitempty"`
+
+	// Pre-per-character format: one flat set shared by every toon. Read only on
+	// upgrade and folded into Seed.
+	Groups   map[int]bool    `json:"groups,omitempty"`
+	Triggers map[string]bool `json:"triggers,omitempty"`
+}
+
+// trigToggleSchema is the current overrides-file schema. 1 = the one-time
+// drop of true-valued trigger overrides at the collective-toggle upgrade.
+const trigToggleSchema = 1
+
+func newTrigToggleSet() *trigToggleSet {
+	return &trigToggleSet{Groups: map[int]bool{}, Triggers: map[string]bool{}}
+}
+
+func (s *trigToggleSet) empty() bool { return len(s.Groups) == 0 && len(s.Triggers) == 0 }
+
+func (s *trigToggleSet) clone() *trigToggleSet {
+	c := newTrigToggleSet()
+	for k, v := range s.Groups {
+		c.Groups[k] = v
+	}
+	for k, v := range s.Triggers {
+		c.Triggers[k] = v
+	}
+	return c
+}
+
+func trigTogglesPath() string {
+	return filepath.Join(filepath.Dir(settingsPath()), "trigger_toggles.json")
+}
+
+// trigTimersStatePath holds the persisted auto-pause-category timers that
+// survive app restarts (see persistTriggerTimers in triggers_engine.go).
+func trigTimersStatePath() string {
+	return filepath.Join(filepath.Dir(settingsPath()), "trigger_timers.json")
+}
+
+func trigToggleKey(g *GinaGroup, t *GinaTrigger) string {
+	return strconv.Itoa(g.GroupID) + "/" + t.Name
+}
+
+func loadTrigTogglesLocked() {
+	trigTogglesAll = map[string]*trigToggleSet{}
+	trigToggleSeed = nil
+
+	// A missing file has nothing legacy in it; only a parsed pre-schema file
+	// triggers the migration below.
+	schema := trigToggleSchema
+	if data, err := os.ReadFile(trigTogglesPath()); err == nil {
+		var f trigTogglesFile
+		if json.Unmarshal(data, &f) == nil {
+			schema = f.Schema
+			for k, s := range f.Chars {
+				if s == nil {
+					continue
+				}
+				if s.Groups == nil {
+					s.Groups = map[int]bool{}
+				}
+				if s.Triggers == nil {
+					s.Triggers = map[string]bool{}
+				}
+				trigTogglesAll[strings.ToLower(k)] = s
+			}
+			trigToggleSeed = f.Seed
+			// Upgrade: the old shared set becomes the seed, so the toon who was
+			// using it keeps their tuning instead of snapping back to defaults.
+			if trigToggleSeed == nil && (len(f.Groups) > 0 || len(f.Triggers) > 0) {
+				trigToggleSeed = &trigToggleSet{Groups: f.Groups, Triggers: f.Triggers}
+			}
+		}
+	}
+	if trigToggleSeed != nil {
+		if trigToggleSeed.Groups == nil {
+			trigToggleSeed.Groups = map[int]bool{}
+		}
+		if trigToggleSeed.Triggers == nil {
+			trigToggleSeed.Triggers = map[string]bool{}
+		}
+	}
+
+	// One-time migration for the collective-toggle semantics: drop every
+	// TRUE-valued trigger override, every character, seed included.
+	//
+	// Under the old rules an explicit trigger "on" was inert — triggers
+	// defaulted to on, and a disabled group gated them out regardless — but
+	// the group switch stamped one onto every trigger beneath whenever a
+	// group was enabled, so years of clicks left them everywhere. Under the
+	// NEW rules an explicit "on" pierces a disabled group (that's the point
+	// of it), and those stale stamps would turn a user's carefully disabled
+	// sections back on wholesale. Dropping them changes nothing observable
+	// about the old behavior: where the group chain is on, inheritance now
+	// supplies on anyway; where it's off, the mark never fired a thing.
+	// FALSE overrides are kept — an individually disabled timer stays
+	// disabled. Overrides written after this run mean exactly what they say.
+	if schema < trigToggleSchema {
+		// classContent: the group sits strictly below a class-specific
+		// section. TRUE overrides there were stamped by the section's toggle
+		// (defaults editor or per-character) and enabled every class for
+		// whoever they applied to — the section means AUTO now, so they go.
+		// Deliberate cross-class reach-ins are reset to auto too; that's the
+		// cost of not being able to tell them from the stamps, and they're
+		// two clicks to redo.
+		classContent := func(id int) bool {
+			g := groupByID[id]
+			if g == nil {
+				return false
+			}
+			for cur := groupParentOf[g.GroupID]; cur != nil; cur = groupParentOf[cur.GroupID] {
+				if sectionIsClassSpecific(cur.Name) {
+					return true
+				}
+			}
+			return false
+		}
+		dropped := 0
+		forEachTrigToggleSetLocked(func(s *trigToggleSet) {
+			for k, v := range s.Triggers {
+				if v {
+					delete(s.Triggers, k)
+					dropped++
+				}
+			}
+			for id, v := range s.Groups {
+				if v && classContent(id) {
+					delete(s.Groups, id)
+					dropped++
+				}
+			}
+		})
+		if err := saveTrigTogglesLocked(); err == nil && dropped > 0 {
+			addStatus("Timers: one-time cleanup — dropped %d legacy always-on marks (they would now override disabled groups or enable every class)", dropped)
+		}
+	}
+}
+
+// trigToggleSetForLocked returns charName's override set, creating it on first
+// sight when create is true (otherwise a read-only empty set is returned so
+// callers can evaluate defaults without allocating a bucket).
+//
+// A brand-new character starts with no overrides, which is what makes the
+// rule-based defaults (Buffs, Debuffs, Raiding + their own class) apply. The one
+// exception is the seed: overrides that predate per-character storage, or that
+// were made before any log was attached. The first real character to be written
+// to adopts them; after that the seed is gone and later toons start clean.
+func trigToggleSetForLocked(charName string, create bool) *trigToggleSet {
+	// "Configure Defaults" staging: the reserved pseudo-character routes every
+	// read/write to a session-only set. Nothing real changes until
+	// SaveTriggerDefaults copies it over the seed and every character —
+	// canceling just drops it. Checked before the view-as hook so the editor
+	// behaves the same whatever preview is active.
+	if strings.EqualFold(strings.TrimSpace(charName), trigDefaultsChar) {
+		if trigDefaultsStaging == nil {
+			trigDefaultsStaging = newTrigToggleSet()
+		}
+		return trigDefaultsStaging
+	}
+	// "Linked User — No Config" preview: every character reads (and writes)
+	// a session-only set, so the tree and engine show a fresh member's
+	// defaults and pokes at the toggles never touch the real overrides.
+	// saveTrigTogglesLocked only serializes trigTogglesAll + the seed, so
+	// this set is unpersistable by construction. Dropped on level change.
+	if ViewAsActive() == "noconfig" {
+		if viewAsToggles == nil {
+			viewAsToggles = newTrigToggleSet()
+		}
+		return viewAsToggles
+	}
+	key := strings.ToLower(strings.TrimSpace(charName))
+
+	// No log attached yet: edits go to the seed so they carry to the first
+	// character that logs in rather than vanishing.
+	if key == "" {
+		if trigToggleSeed == nil {
+			if !create {
+				return newTrigToggleSet()
+			}
+			trigToggleSeed = newTrigToggleSet()
+		}
+		return trigToggleSeed
+	}
+
+	if set := trigTogglesAll[key]; set != nil {
+		return set
+	}
+	if !create {
+		// Not configured yet. The seed still describes what this toon WOULD adopt,
+		// so read through it rather than reporting bare defaults.
+		if trigToggleSeed != nil && !trigToggleSeed.empty() {
+			return trigToggleSeed
+		}
+		return newTrigToggleSet()
+	}
+
+	set := newTrigToggleSet()
+	if trigToggleSeed != nil && !trigToggleSeed.empty() {
+		set = trigToggleSeed.clone()
+	}
+	trigToggleSeed = nil
+	trigTogglesAll[key] = set
+	_ = saveTrigTogglesLocked()
+	return set
+}
+
+// trigEnableCtx is the character context enablement is evaluated in: their
+// override set plus their class (which decides the "01 - Class Specific"
+// default). Building this explicitly is what lets the Manage Timers page show
+// and edit any character's triggers, not just the one currently logged in.
+type trigEnableCtx struct {
+	set   *trigToggleSet
+	class string
+}
+
+// trigDefaultsChar is the reserved pseudo-character the "Configure Defaults"
+// editor works against; trigDefaultsStaging holds its uncommitted set.
+// Guarded by trigStoreMu like everything else here.
+const trigDefaultsChar = "*defaults*"
+
+var trigDefaultsStaging *trigToggleSet
+
+func trigCtxForLocked(charName string, create bool) trigEnableCtx {
+	return trigEnableCtx{set: trigToggleSetForLocked(charName, create), class: trigClassFor(charName)}
+}
+
+// trigClassFor resolves a character's class. The active character prefers the
+// class the sync layer resolved (it fetches on demand); everyone else reads the
+// local character cache.
+func trigClassFor(charName string) string {
+	// The defaults editor has no class on purpose: class-specific folders are
+	// auto-detected per character and stay out of the defaults entirely.
+	if strings.EqualFold(charName, trigDefaultsChar) {
+		return ""
+	}
+	if charName != "" && strings.EqualFold(charName, currentCharName) {
+		if c := classForCurrentChar(); c != "" {
+			return c
+		}
+	}
+	return classForCharacter(charName)
+}
+
+func saveTrigTogglesLocked() error {
+	f := trigTogglesFile{Chars: trigTogglesAll, Seed: trigToggleSeed, Schema: trigToggleSchema}
+	data, err := json.MarshalIndent(f, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(trigTogglesPath(), data, 0600)
+}
+
+// forEachTrigToggleSetLocked visits every stored set, including the seed —
+// used when a rename or delete has to be reflected for all characters, not just
+// the one currently logged in.
+func forEachTrigToggleSetLocked(fn func(s *trigToggleSet)) {
+	for _, s := range trigTogglesAll {
+		fn(s)
+	}
+	if trigToggleSeed != nil {
+		fn(trigToggleSeed)
+	}
+}
+
+// effectiveGroupEnabledLocked returns whether a group is COLLECTIVELY enabled
+// for ctx's character: the nearest explicit slider override walking UP from
+// the group itself wins, so a disabled section darkens everything beneath it —
+// including subgroups synced in after the click, which the setter's stamping
+// couldn't have reached. With no override anywhere on the chain, the
+// rule-based default for THIS group answers (defaultGroupEnabledLocked, which
+// is what keeps a class subsection on inside its default-off parent section).
+// Caller holds trigStoreMu.
+func effectiveGroupEnabledLocked(g *GinaGroup, ctx trigEnableCtx) bool {
+	// crossedClass: the walk passed a class-specific section STRICTLY above g.
+	// An explicit ON found beyond that boundary never blankets the classes —
+	// "01 - Class Specific enabled" means AUTO, the character's own class per
+	// the rule default. An explicit OFF still cascades: disabled is disabled.
+	crossedClass := false
+	for cur := g; cur != nil; cur = groupParentOf[cur.GroupID] {
+		if cur != g && sectionIsClassSpecific(cur.Name) {
+			crossedClass = true
+		}
+		if v, ok := ctx.set.Groups[cur.GroupID]; ok {
+			if v && crossedClass {
+				return defaultGroupEnabledLocked(g, ctx)
+			}
+			return v
+		}
+	}
+	return defaultGroupEnabledLocked(g, ctx)
+}
+
+// effectiveTriggerEnabledLocked is the ONE question that decides whether a
+// trigger fires and how its slider draws — the two must never disagree. An
+// explicit trigger-level override always wins: a timer switched on by hand
+// works even inside a disabled group (the whole point of reaching in and
+// flipping it), and one switched off stays off however its group toggles.
+// Without an override, the trigger follows its group's collective state.
+func effectiveTriggerEnabledLocked(g *GinaGroup, t *GinaTrigger, ctx trigEnableCtx) bool {
+	if v, ok := ctx.set.Triggers[trigToggleKey(g, t)]; ok {
+		return v
+	}
+	return effectiveGroupEnabledLocked(g, ctx)
+}
+
+// defaultGroupEnabledLocked is the enablement for a group with no user override.
+// Personal is on. In Fuse Triggers, the "03 - Buffs" and "05 - Raiding"
+// sections are on for everyone; "01 - Class Specific" is on only for the
+// current character's own class subsection (off entirely when the class is
+// unknown); everything else is off.
+func defaultGroupEnabledLocked(g *GinaGroup, ctx trigEnableCtx) bool {
+	// The two container roots are always "on" (they hold no triggers of their
+	// own; their children control what actually fires).
+	if g.GroupID == fuseRootGroupID || g.GroupID == personalRootGroupID {
+		return true
+	}
+	if isPersonalGroupLocked(g.GroupID) {
+		return true
+	}
+	section, underClass := fuseSectionOfLocked(g, ctx.class)
+	if section == nil {
+		return false
+	}
+	switch {
+	case sectionEnabledForAll(section.Name):
+		return true
+	case sectionIsClassSpecific(section.Name):
+		return ctx.class != "" && underClass
+	default:
+		return false
+	}
+}
+
+// fuseSectionOfLocked walks up from g to the Fuse root, returning the top
+// section (direct child of the Fuse root) g lives under, and whether the path
+// passed through a subgroup named for the current character's class. Returns
+// (nil, false) if g is the Fuse root itself or not in the Fuse subtree.
+func fuseSectionOfLocked(g *GinaGroup, class string) (section *GinaGroup, underClass bool) {
+	var chain []*GinaGroup
+	for cur := g; cur != nil && cur.GroupID != fuseRootGroupID; cur = groupParentOf[cur.GroupID] {
+		chain = append(chain, cur)
+	}
+	if len(chain) == 0 {
+		return nil, false
+	}
+	// Confirm we actually reached the Fuse root (topmost's parent is it).
+	top := chain[len(chain)-1]
+	if p := groupParentOf[top.GroupID]; p == nil || p.GroupID != fuseRootGroupID {
+		return nil, false
+	}
+	for _, c := range chain {
+		if class != "" && strings.EqualFold(strings.TrimSpace(c.Name), class) {
+			underClass = true
+		}
+	}
+	return top, underClass
+}
+
+func sectionEnabledForAll(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	for _, p := range []string{"03 -", "05 -"} {
+		if strings.HasPrefix(n, p) {
+			return true
+		}
+	}
+	return strings.HasPrefix(n, "buffs") || strings.HasPrefix(n, "raiding")
+}
+
+func sectionIsClassSpecific(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	return strings.HasPrefix(n, "01 -") || strings.Contains(n, "class specific")
+}
+
+// isPersonalGroupLocked reports whether a group is the Personal root or under it.
+func isPersonalGroupLocked(groupID int) bool {
+	for cur := groupByID[groupID]; cur != nil; cur = groupParentOf[cur.GroupID] {
+		if cur.GroupID == personalRootGroupID {
+			return true
+		}
+	}
+	return false
+}
+
+// isFuseGroupLocked reports whether a group is the Fuse root or under it.
+func isFuseGroupLocked(groupID int) bool {
+	for cur := groupByID[groupID]; cur != nil; cur = groupParentOf[cur.GroupID] {
+		if cur.GroupID == fuseRootGroupID {
+			return true
+		}
+	}
+	return false
+}
+
+// rebuildTriggerIndexLocked assigns session IDs to any trigger that lacks one
+// and rebuilds the lookup maps. Existing IDs are preserved so the UI (and the
+// activity feed) keeps addressing the same triggers across edits.
+func rebuildTriggerIndexLocked() {
+	trigByID = make(map[int]*GinaTrigger)
+	trigGroupOf = make(map[int]*GinaGroup)
+	groupByID = make(map[int]*GinaGroup)
+	groupParentOf = make(map[int]*GinaGroup)
+	var walk func(g *GinaGroup, parent *GinaGroup)
+	walk = func(g *GinaGroup, parent *GinaGroup) {
+		groupByID[g.GroupID] = g
+		groupParentOf[g.GroupID] = parent
+		for _, t := range g.Triggers {
+			if t.ID == 0 {
+				trigNextID++
+				t.ID = trigNextID
+			}
+			trigByID[t.ID] = t
+			trigGroupOf[t.ID] = g
+		}
+		for _, c := range g.Groups {
+			walk(c, g)
+		}
+	}
+	if trigCfg != nil {
+		for _, g := range trigCfg.Groups {
+			walk(g, nil)
+		}
+	}
+}
+
+// saveTriggersLocked persists both local subtrees (Personal file + Fuse cache).
+// The Fuse set's write-through to the server is handled separately by the edit
+// bindings (officer-only). Kept as one call so existing mutation paths persist
+// everything without caring which subtree changed.
+func saveTriggersLocked() error {
+	if err := savePersonalLocked(); err != nil {
+		return err
+	}
+	return saveFuseCacheLocked()
+}
+
+// savePersonalLocked writes the Personal subtree to disk (atomically).
+func savePersonalLocked() error {
+	if personalRoot == nil {
+		return nil
+	}
+	body, err := marshalGroupXML(personalRoot)
+	if err != nil {
+		return err
+	}
+	return atomicWrite(personalPath(), append([]byte(xml.Header), body...))
+}
+
+// markFuseDirty flags the local Fuse set as carrying unpublished officer edits
+// and persists that. Nothing is sent to the server — the officer publishes
+// explicitly (PublishFuseTriggers) or backs out (RevertFuseTriggers). Called
+// after every successful Fuse edit, in place of the old auto-push.
+func markFuseDirty() {
+	trigStoreMu.Lock()
+	if !fuseDirty {
+		fuseDirty = true
+		_ = saveFuseCacheLocked()
+	}
+	trigStoreMu.Unlock()
+}
+
+// saveFuseCacheLocked writes the cached Fuse set (version + XML + dirty flag)
+// to disk.
+func saveFuseCacheLocked() error {
+	if fuseRoot == nil {
+		return nil
+	}
+	body, err := marshalGroupXML(fuseRoot)
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(fuseCacheFile{Version: fuseVersion, XML: string(body), Dirty: fuseDirty}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return atomicWrite(fuseCachePath(), data)
+}
+
+// marshalGroupXML serializes one group subtree as a <TriggerGroup> element
+// (matching GINA's element name, so it round-trips through xml.Unmarshal).
+func marshalGroupXML(g *GinaGroup) ([]byte, error) {
+	return xml.MarshalIndent(struct {
+		XMLName xml.Name `xml:"TriggerGroup"`
+		*GinaGroup
+	}{GinaGroup: g}, "", "  ")
+}
+
+func atomicWrite(dst string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
+		return err
+	}
+	tmp := dst + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// nextGroupIDLocked returns an unused GroupId for a newly created group.
+func nextGroupIDLocked() int {
+	max := 0
+	for id := range groupByID {
+		if id > max {
+			max = id
+		}
+	}
+	if max < 1000000 {
+		max = 1000000 // keep our IDs clear of GINA's existing ranges
+	}
+	return max + 1
+}
