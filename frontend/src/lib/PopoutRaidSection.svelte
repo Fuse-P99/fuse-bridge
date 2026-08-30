@@ -1,0 +1,167 @@
+<script>
+  // Content of a Special Overlay: one section of the active raid card
+  // (Assignments / Debuffs / Clerics), rendered with the same shared
+  // components the Raids tab uses. Polls the timers board for the active raid;
+  // shows a quiet placeholder when no raid is running.
+  //
+  // Three sources: the active raid card (a real, mob-anchored raid), the
+  // event raid card (Plane of Sky / HoT / Ring War), and the server's GHOST
+  // raid (ghost_raid) — raid chat with no identified target, which covers
+  // the time before a batphone lands and the trash-clearing after a kill.
+  // Among them, the card for the zone the viewer is STANDING IN wins (see
+  // poll); base priority breaks ties and covers unknown zones. Every source
+  // carries a zone like a real card, so the in-zone gate below applies
+  // unchanged.
+  //
+  // Deliberately NOT a source: the lingering recap of a just-completed raid.
+  // These overlays sit on top of the game and must describe the fight in front
+  // of you; a dead boss's frozen tank list and chain is worse than an empty
+  // panel. The recap belongs on the Raids tab, which keeps it for its five
+  // minutes. When a chain is still rolling after a kill, the server's ghost
+  // picks it up within a call or two and these go live again on their own.
+  import { onMount, onDestroy } from "svelte";
+  import { GetTimers, GetCurrentZone } from "../../bindings/FuseBridge/app.js";
+  import RaidAssignments from "./RaidAssignments.svelte";
+  import RaidDebuffs from "./RaidDebuffs.svelte";
+  import RaidClerics from "./RaidClerics.svelte";
+
+  export let section; // "assign" | "debuffs" | "clerics"
+  // Pushed up to the popout shell so "Hide when 0 triggers" can hide the title.
+  export let hasContent = false;
+  // Overlay settings, threaded down from the popout shell.
+  export let flash = true; // proc / sieve / cast-start flashes
+  export let showTiming = false; // clerics only: +N.Ns after each caster
+  export let pulseAudio = false; // clerics only: audible "you're next" cue
+  export let pulseSound = ""; // clerics only: the cue's media file
+
+  let card = null;
+  let myZone = "";
+  let pollTimer;
+
+  function pickActive(d) {
+    for (const m of (d && d.mobs) || []) {
+      if (m.is_raid && m.raid && m.raid.status !== "complete") return m.raid;
+    }
+    return null;
+  }
+
+  // Zone names meet here from two vocabularies — the event defs' hardcoded
+  // strings ("Great Divide") and the eqzones canonical names the zone tracker
+  // reports. Raw lowercase comparison has bitten this codebase before, so
+  // compare on a stripped key: no leading article, no punctuation, no case.
+  const zoneKey = (z) =>
+    (z || "")
+      .toLowerCase()
+      .replace(/^the\s+/, "")
+      .replace(/[^a-z0-9]+/g, "");
+
+  async function poll() {
+    try {
+      // GetCurrentZone tracks zone-entry lines and /who — unlike the /loc
+      // position, it stays correct for players who never run /loc. Fetched
+      // FIRST because the card pick below is zone-aware.
+      myZone = (await GetCurrentZone()) || "";
+    } catch {
+      /* keep last zone */
+    }
+    try {
+      const data = await GetTimers();
+      // Base priority: a live mob raid (an interrupt's assignments belong to
+      // that fight), then the event raid (Sky / HoT / Ring War), then the
+      // ghost — assembled from the whole guild's chat, so it carries the tank
+      // lists and debuffs that a locally-revived card never had.
+      //
+      // ZONE-AWARE override: among those sources, a card for the zone the
+      // viewer is STANDING IN wins. The fixed priority alone had a blind
+      // spot: with an hourly event live in another zone, an unbatphoned
+      // fight's ghost was shadowed by the event card, and the in-zone gate
+      // below then hid the overlay entirely — ToV clerics lost their chain
+      // for a whole Lady Nevederia fight while a Sky card idled (2026-08-25).
+      // Works in the mirror case too: a cleric standing in the event zone
+      // sees the event card even while a mob raid runs elsewhere. Unknown
+      // zones (mine or a card's) fall back to the base priority.
+      const sources = [
+        pickActive(data),
+        data && data.event_raid,
+        data && data.ghost_raid,
+      ].filter(Boolean);
+      const z = zoneKey(myZone);
+      card =
+        (z && sources.find((c) => c.zone && zoneKey(c.zone) === z)) ||
+        sources[0] ||
+        null;
+    } catch {
+      /* keep last card */
+    }
+  }
+
+  // These overlays only render when the player is standing in the raid's zone.
+  // Unknown raid zone (mob not in the DB) fails open; unknown player zone
+  // hides — you're not in the raid zone if we can't place you in any zone.
+  $: inRaidZone =
+    !!card &&
+    (!card.zone || (myZone && zoneKey(myZone) === zoneKey(card.zone)));
+  // A live card in the right zone is not enough — the SECTION has to have
+  // something in it. An assignments panel with no tanks called, or a debuffs
+  // panel reading "None called yet", is a translucent strip over the game
+  // telling you nothing. sectionHas is reported by the section component
+  // itself, so this can't drift from what actually renders.
+  //
+  // No reset when the card goes away: the child stops updating sectionHas,
+  // but the && in front of it already forces this false.
+  let sectionHas = false;
+  $: hasContent = !!card && inRaidZone && sectionHas;
+
+  onMount(() => {
+    poll();
+    pollTimer = setInterval(poll, 5000);
+  });
+  onDestroy(() => clearInterval(pollTimer));
+</script>
+
+<div class="praid">
+  {#if card && inRaidZone}
+    <!-- showLabel={false}: the popout's own title bar already names the
+         section, so the shared component's heading would just repeat it. -->
+    {#if section === "assign"}
+      <RaidAssignments
+        {card}
+        {flash}
+        showLabel={false}
+        bind:hasAny={sectionHas}
+      />
+    {:else if section === "debuffs"}
+      <RaidDebuffs {card} {flash} showLabel={false} bind:hasAny={sectionHas} />
+    {:else}
+      <RaidClerics
+        {card}
+        {flash}
+        {showTiming}
+        {pulseAudio}
+        {pulseSound}
+        showLabel={false}
+        bind:hasAny={sectionHas}
+      />
+    {/if}
+  {:else}
+    <div class="idle"></div>
+  {/if}
+</div>
+
+<style>
+  .praid {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 10px 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  .idle {
+    margin: auto;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+</style>
