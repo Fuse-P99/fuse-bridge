@@ -1,0 +1,336 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+)
+
+// startUpdaterHelper launches the swap-and-relaunch PowerShell with
+// CREATE_NO_WINDOW — an invisible console — which is the ORIGINAL, proven
+// launch. It first tries CREATE_BREAKAWAY_FROM_JOB on top, so a Windows Job
+// Object around an autostart (Run-key) launch can't tear the helper down when
+// we exit; a job that forbids breakaway makes CreateProcess fail, and we fall
+// back to the plain spawn.
+//
+// NEVER add DETACHED_PROCESS here. It was tried (2026-09) and broke every
+// update, manual ones included: DETACHED_PROCESS gives the child NO console
+// (and makes CREATE_NO_WINDOW ignored), and powershell.exe is a console app —
+// with no console it fails to initialize its host and exits without ever
+// running the -Command script. cmd.Start() still returns nil (the process was
+// created), so applyUpdate believed the handoff succeeded and os.Exit'd: the
+// app closed, but no swap and no relaunch ever happened. CREATE_NO_WINDOW
+// gives PowerShell a real (hidden) console to run in.
+func startUpdaterHelper(script string) error {
+	const (
+		createNoWindow     = 0x08000000
+		createBreakawayJob = 0x01000000
+	)
+	attempt := func(flags uint32) error {
+		cmd := exec.Command("powershell",
+			"-WindowStyle", "Hidden", "-NoProfile", "-NonInteractive", "-Command", script)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: flags}
+		return cmd.Start()
+	}
+	if err := attempt(createNoWindow | createBreakawayJob); err == nil {
+		return nil
+	}
+	return attempt(createNoWindow)
+}
+
+type versionResponse struct {
+	Version string `json:"version"`
+}
+
+// lastLogActivity is updated by the filter goroutine each time a line arrives
+// from the EQ log. Used to determine whether the game is actively being played.
+var lastLogActivity time.Time
+
+// logIsStale returns true when no EQ log line has been seen for at least an
+// hour, indicating the game is not being played and it is safe to restart.
+func logIsStale() bool {
+	// Zero means no activity since the relay started — treat as stale.
+	return lastLogActivity.IsZero() || time.Since(lastLogActivity) >= 1*time.Hour
+}
+
+// startUpdateChecker checks for a new client binary every 6 hours, but only when
+// EQ logs have been quiet for at least an hour. The initial startup check is
+// handled separately (see main.go) so the upgrade screen can be shown first.
+func startUpdateChecker() {
+	go func() {
+		for range time.Tick(6 * time.Hour) {
+			checkForUpdate()
+		}
+	}()
+}
+
+// updateStampPath returns the path of the file used to track the last update attempt.
+func updateStampPath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(exe), "FuseBridge-update.stamp")
+}
+
+const (
+	// After ANY auto-update attempt, don't auto-retry for this long — breaks a
+	// tight loop regardless of target.
+	updateMinCooldown = 5 * time.Minute
+	// After attempting a SPECIFIC target version and coming back still not being
+	// it, don't auto-retry that same version for this long. This is the important
+	// one: if the server advertises a version the downloaded binary never becomes
+	// — e.g. its build-time clientVersion doesn't match settings.json — the app
+	// would otherwise re-download and relaunch on every reboot forever. A
+	// genuinely different (newer) version is never blocked, so real updates still
+	// flow. The manual Update button ignores this entirely.
+	updateVersionBlock = 24 * time.Hour
+)
+
+// readUpdateStamp returns the target version of the last auto-update attempt
+// (file content) and when it happened (file mtime).
+func readUpdateStamp() (version string, at time.Time, ok bool) {
+	p := updateStampPath()
+	if p == "" {
+		return "", time.Time{}, false
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return "", time.Time{}, false
+	}
+	data, _ := os.ReadFile(p)
+	return strings.TrimSpace(string(data)), info.ModTime(), true
+}
+
+// autoUpdateBlocked reports whether the auto-updater should skip this target
+// version right now. Only the automatic path consults it; the manual button
+// (StartUpdate → availableUpdate) always proceeds.
+func autoUpdateBlocked(targetVersion string) bool {
+	version, at, ok := readUpdateStamp()
+	if !ok {
+		return false
+	}
+	if time.Since(at) < updateMinCooldown {
+		return true
+	}
+	return version != "" && version == targetVersion && time.Since(at) < updateVersionBlock
+}
+
+// touchUpdateStamp records that we just attempted to update to targetVersion.
+func touchUpdateStamp(targetVersion string) {
+	p := updateStampPath()
+	if p == "" {
+		return
+	}
+	os.WriteFile(p, []byte(targetVersion), 0644)
+}
+
+// availableUpdate reports whether the server offers a strictly newer client,
+// regardless of whether it's safe to auto-restart right now. Used by the
+// manual Update button (user-initiated) and by updateInfo below.
+func availableUpdate() (string, string, bool) {
+	base := strings.TrimSuffix(serverURL, "/submit")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(base + "/version")
+	if err != nil {
+		return "", "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", "", false
+	}
+	var vr versionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&vr); err != nil {
+		return "", "", false
+	}
+	if vr.Version == "" || vr.Version == clientVersion {
+		return "", "", false
+	}
+	if !versionGreaterThan(vr.Version, clientVersion) {
+		return "", "", false // server version is not newer; don't downgrade
+	}
+	return base, vr.Version, true
+}
+
+// updateInfo reports whether a newer client is available and safe to install
+// now, returning (baseURL, newVersion, true) when so.
+func updateInfo() (string, string, bool) {
+	if !logIsStale() {
+		return "", "", false
+	}
+	base, v, ok := availableUpdate()
+	if !ok {
+		return "", "", false
+	}
+	if autoUpdateBlocked(v) {
+		return "", "", false
+	}
+	return base, v, true
+}
+
+func checkForUpdate() {
+	base, newVer, ok := updateInfo()
+	if !ok {
+		return
+	}
+	addStatus("Update available (%s → %s), downloading...", clientVersion, newVer)
+	if err := applyUpdate(base, newVer); err != nil {
+		addStatus("Update failed: %v", err)
+		writeLog("periodic update failed: " + err.Error())
+	}
+}
+
+// cleanupFailedUpdate detects a leftover FuseBridge-new.exe from a previous
+// attempt whose swap never completed (the exe stayed locked, so the swap script
+// relaunched the old build). Removes it and surfaces the fact so "still on the
+// old version" reports are diagnosable; the retry happens through the normal
+// startup/periodic checks or the manual Update button. The age guard avoids
+// racing a swap script that is still inside its retry window.
+func cleanupFailedUpdate() {
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	p := filepath.Join(filepath.Dir(exe), "FuseBridge-new.exe")
+	if info, err := os.Stat(p); err == nil && time.Since(info.ModTime()) > 5*time.Minute {
+		writeLog("leftover FuseBridge-new.exe — previous update swap did not complete")
+		addStatus("The previous update could not replace the app file; it will be retried automatically.")
+		os.Remove(p)
+	}
+}
+
+// versionGreaterThan returns true when a is strictly newer than b.
+// Versions are expected in "major.minor.patch" form.
+func versionGreaterThan(a, b string) bool {
+	parse := func(v string) [3]int {
+		var parts [3]int
+		segs := strings.SplitN(v, ".", 3)
+		for i, s := range segs {
+			if i >= 3 {
+				break
+			}
+			parts[i], _ = strconv.Atoi(s)
+		}
+		return parts
+	}
+	av, bv := parse(a), parse(b)
+	for i := range av {
+		if av[i] != bv[i] {
+			return av[i] > bv[i]
+		}
+	}
+	return false
+}
+
+// applyUpdate downloads the new binary and hands off to the swap script. On
+// success it never returns (the process exits for the restart); any error is
+// returned so the caller can back out of the upgrade screen and retry later.
+// targetVersion is what the server advertised — recorded in the stamp so the
+// auto-updater won't chase a version the binary never becomes (see
+// autoUpdateBlocked).
+func applyUpdate(baseURL, targetVersion string) error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("cannot find executable path: %w", err)
+	}
+	exeDir := filepath.Dir(exePath)
+	newExePath := filepath.Join(exeDir, "FuseBridge-new.exe")
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/client", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", authHeader())
+
+	// The binary is ~30MB; on a slow connection a full download can far exceed
+	// the old 2-minute cap. This timeout is a stall guard, not a speed test.
+	client := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: server returned %d", resp.StatusCode)
+	}
+
+	f, err := os.Create(newExePath)
+	if err != nil {
+		return fmt.Errorf("cannot create temp file: %w", err)
+	}
+	discard := func() {
+		f.Close()
+		os.Remove(newExePath)
+	}
+	n, err := io.Copy(f, resp.Body)
+	if err != nil {
+		discard()
+		return fmt.Errorf("download interrupted: %w", err)
+	}
+	// Never swap in a truncated or bogus file: the byte count must match the
+	// server's Content-Length and be a plausible size for the client binary.
+	if resp.ContentLength > 0 && n != resp.ContentLength {
+		discard()
+		return fmt.Errorf("download incomplete: got %d of %d bytes", n, resp.ContentLength)
+	}
+	if n < 1<<20 {
+		discard()
+		return fmt.Errorf("downloaded file too small to be the client (%d bytes)", n)
+	}
+	if err := f.Sync(); err != nil {
+		discard()
+		return fmt.Errorf("cannot flush download to disk: %w", err)
+	}
+	f.Close()
+
+	// Launch a hidden PowerShell process that swaps the exe and relaunches. It
+	// does NOT wait on our PID: at boot (autostart) PIDs are recycled fast, so
+	// `Wait-Process -Id <us>` could block ~60s on an unrelated process that
+	// reused our id — the app "closed and didn't reopen" until the timeout. The
+	// swap's own retry loop is the real serializer: Move-Item can only succeed
+	// once we release the exe's file lock, which only happens when we exit
+	// (os.Exit below fires within milliseconds). A successful move is itself
+	// proof we're gone, so Start-Process never races a live old instance.
+	// Progress goes to FuseBridge-update.log next to the exe; the relaunch runs
+	// regardless of the swap outcome so the user is never left with no app.
+	updateLog := filepath.Join(exeDir, "FuseBridge-update.log")
+	script := fmt.Sprintf(
+		"('update started ' + (Get-Date)) | Out-File -FilePath '%s'; "+
+			"$moved = $false; "+
+			"foreach ($i in 1..60) { "+
+			"try { Move-Item -Force -ErrorAction Stop '%s' '%s'; $moved = $true; break } "+
+			"catch { Start-Sleep -Seconds 1 } "+
+			"}; "+
+			"('moved=' + $moved + ' ' + (Get-Date)) | Out-File -FilePath '%s' -Append; "+
+			"Start-Process '%s'",
+		updateLog, newExePath, exePath, updateLog, exePath,
+	)
+	if err := startUpdaterHelper(script); err != nil {
+		os.Remove(newExePath)
+		writeLog("update: helper failed to launch: " + err.Error())
+		return fmt.Errorf("cannot launch update script: %w", err)
+	}
+	writeLog(fmt.Sprintf("update: helper launched, swapping to %s and relaunching; this process (pid=%d) is exiting", targetVersion, os.Getpid()))
+
+	// Only a successful handoff marks an attempt: the stamp exists to break
+	// restart loops when the server serves a stale-versioned exe, not to
+	// suppress retries after a failed download.
+	touchUpdateStamp(targetVersion)
+	// Auto-pause timers normally persist on clean shutdown; do it here too since
+	// os.Exit skips main's teardown.
+	PersistTriggerTimersNow()
+	// Same reason: the restarted app must come back at the size and position
+	// the user set, not the defaults.
+	FlushMainWindowGeom()
+	addStatus("Restarting for update...")
+	os.Exit(0)
+	return nil
+}
